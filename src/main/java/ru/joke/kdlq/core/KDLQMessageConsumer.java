@@ -3,12 +3,11 @@ package ru.joke.kdlq.core;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 
 import javax.annotation.Nonnull;
-import java.util.function.Predicate;
 
-public interface KDLQMessageConsumer {
+public interface KDLQMessageConsumer<K, V> {
 
     @Nonnull
-    <K, V> Status accept(@Nonnull ConsumerRecord<K, V> message, @Nonnull Predicate<ConsumerRecord<K, V>> action);
+    Status accept(@Nonnull ConsumerRecord<K, V> message, @Nonnull KDLQMessageProcessor<K, V> messageProcessor);
 
     enum Status {
 
@@ -16,6 +15,8 @@ public interface KDLQMessageConsumer {
 
         ERROR_DLQ_OK,
 
-        ERROR_RETRY
+        ERROR_DLQ_MAX_ATTEMPTS_REACHED,
+
+        WILL_BE_REDELIVERED
     }
 }
