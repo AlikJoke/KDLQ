@@ -12,9 +12,13 @@ import java.io.Closeable;
 
 public final class DefaultKDLQMessageConsumer<K, V> implements KDLQMessageConsumer<K, V>, Closeable {
 
+    private final String id;
     private final KDLQMessageSender<K, V> messageSender;
+    private final KDLQConfiguration dlqConfiguration;
 
     public DefaultKDLQMessageConsumer(@Nonnull String id, @Nonnull KDLQConfiguration dlqConfiguration) {
+        this.id = id;
+        this.dlqConfiguration = dlqConfiguration;
         this.messageSender = new KDLQMessageSender<>(id, dlqConfiguration);
     }
 
@@ -26,7 +30,7 @@ public final class DefaultKDLQMessageConsumer<K, V> implements KDLQMessageConsum
             case MUST_BE_REDELIVERED -> this.messageSender.redeliver(message)
                                                 ? Status.WILL_BE_REDELIVERED
                                                 : Status.ERROR_DLQ_OK;
-            case ERROR -> this.messageSender.send(message)
+            case ERROR -> this.messageSender.sendToDLQ(message)
                                                 ? Status.ERROR_DLQ_OK
                                                 : Status.ERROR_DLQ_MAX_ATTEMPTS_REACHED;
         };
@@ -38,12 +42,33 @@ public final class DefaultKDLQMessageConsumer<K, V> implements KDLQMessageConsum
     }
 
     private KDLQMessageProcessor.ProcessingStatus process(@Nonnull ConsumerRecord<K, V> message, @Nonnull KDLQMessageProcessor<K, V> messageProcessor) {
+        KDLQMessageProcessor.ProcessingStatus processingStatus;
+        RuntimeException processingError = null;
         try {
-            return messageProcessor.process(message);
+            processingStatus = messageProcessor.process(message);
         } catch (KDLQMessageMustBeRedeliveredException ex) {
-            return KDLQMessageProcessor.ProcessingStatus.MUST_BE_REDELIVERED;
+            processingStatus = KDLQMessageProcessor.ProcessingStatus.MUST_BE_REDELIVERED;
+            processingError = ex;
         } catch (RuntimeException ex) {
-            return KDLQMessageProcessor.ProcessingStatus.ERROR;
+            processingStatus = KDLQMessageProcessor.ProcessingStatus.ERROR;
+            processingError = ex;
         }
+
+        callListeners(message, processingStatus, processingError);
+
+        return processingStatus;
+    }
+
+    private void callListeners(
+            final ConsumerRecord<K, V> message,
+            final KDLQMessageProcessor.ProcessingStatus processingStatus,
+            final RuntimeException processingError) {
+        this.dlqConfiguration.lifecycleListeners().forEach(l -> {
+            if (processingError != null) {
+                l.onErrorMessageProcessing(this.id, message, processingStatus, processingError);
+            } else {
+                l.onSuccessMessageProcessing(this.id, message, processingStatus);
+            }
+        });
     }
 }

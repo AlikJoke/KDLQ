@@ -5,6 +5,7 @@ import org.apache.kafka.common.header.Headers;
 import org.apache.kafka.common.header.internals.RecordHeader;
 
 import javax.annotation.Nonnull;
+import java.nio.charset.StandardCharsets;
 import java.util.OptionalInt;
 
 final class KDLQHeadersService {
@@ -12,6 +13,11 @@ final class KDLQHeadersService {
     @Nonnull
     Header createIntHeader(@Nonnull final String headerName, final int value) {
         return new RecordHeader(headerName, intToByteArray(value));
+    }
+
+    @Nonnull
+    Header createStringHeader(@Nonnull final String headerName, final String value) {
+        return new RecordHeader(headerName, value.getBytes(StandardCharsets.UTF_8));
     }
 
     @Nonnull

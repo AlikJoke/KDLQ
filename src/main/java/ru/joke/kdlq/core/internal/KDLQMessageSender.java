@@ -2,8 +2,6 @@ package ru.joke.kdlq.core.internal;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.errors.BrokerNotAvailableException;
-import org.apache.kafka.common.errors.RetriableException;
 import org.apache.kafka.common.header.Headers;
 import org.apache.kafka.common.header.internals.RecordHeaders;
 import org.slf4j.Logger;
@@ -14,15 +12,15 @@ import ru.joke.kdlq.core.KDLQLifecycleException;
 
 import javax.annotation.Nonnull;
 import java.io.Closeable;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 public final class KDLQMessageSender<K, V> implements Closeable {
 
     private static final Logger logger = LoggerFactory.getLogger(KDLQMessageSender.class);
 
     private static final String MESSAGE_KILLS_HEADER = "KDLQ_Kills";
+    private static final String MESSAGE_PRC_MARKER_HEADER = "KDLQ_ProcessingMarker";
+
     private static final int WAIT_TIMEOUT = 30;
 
     private final KDLQHeadersService headersService;
@@ -46,33 +44,35 @@ public final class KDLQMessageSender<K, V> implements Closeable {
     public boolean redeliver(@Nonnull ConsumerRecord<K, V> message) {
 
         // TODO
-        // TODO Mark message by id
         return false;
     }
 
-    public boolean send(@Nonnull ConsumerRecord<K, V> originalMessage) {
+    public boolean sendToDLQ(@Nonnull ConsumerRecord<K, V> originalMessage) {
+        final var listeners = this.dlqConfiguration.lifecycleListeners();
         final int killsCounter = getNextKillsCounter(originalMessage.headers());
         if (killsCounter > dlqConfiguration.maxKills()) {
             logger.warn("Max kills count reached, message will be skipped");
-            // TODO callback
+            listeners.forEach(l -> l.onMessageSkip(this.sourceProcessorId, originalMessage));
+
             return false;
         }
-
-        // TODO check processing tries before kill
 
         final ProducerRecord<K, V> dlqRecord = createRecord(originalMessage, dlqConfiguration, killsCounter);
 
         try {
-            // TODO error handling, callbacks (on error and on success)
             this.producerSession.producer().send(dlqRecord, (recordMetadata, e) -> {
                 if (e != null) {
-                    logger.error("Unable to send message to DLQ: " + dlqConfiguration.queueName(), e);
+                    throw new KDLQException(e);
                 }
             }).get(WAIT_TIMEOUT, TimeUnit.SECONDS);
-        } catch (RetriableException | BrokerNotAvailableException | InterruptedException | ExecutionException | TimeoutException ex) {
-            logger.error("Unable to send message to DLQ: " + dlqConfiguration.queueName(), ex);
+        } catch (Exception ex) {
+            logger.error("Unable to send message to DLQ: " + dlqConfiguration.deadLetterQueueName(), ex);
+            listeners.forEach(l -> l.onMessageKillError(this.sourceProcessorId, originalMessage, dlqRecord, ex));
+
             throw new KDLQException(ex);
         }
+
+        listeners.forEach(l -> l.onMessageKillSuccess(this.sourceProcessorId, originalMessage, dlqRecord));
 
         return true;
     }
@@ -114,13 +114,14 @@ public final class KDLQMessageSender<K, V> implements Closeable {
 
         final var headers = new RecordHeaders(originalRecord.headers().toArray());
         headers.add(this.headersService.createIntHeader(MESSAGE_KILLS_HEADER, nextKillsCounter));
+        headers.add(this.headersService.createStringHeader(MESSAGE_PRC_MARKER_HEADER, this.sourceProcessorId));
 
         return new ProducerRecord<>(
-                dlqConfiguration.queueName(),
+                dlqConfiguration.deadLetterQueueName(),
                 null,
                 originalRecord.key(),
                 originalRecord.value(),
-                originalRecord.headers()
+                headers
         );
     }
 
