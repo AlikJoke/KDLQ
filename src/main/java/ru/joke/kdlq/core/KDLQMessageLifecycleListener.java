@@ -30,7 +30,7 @@ public interface KDLQMessageLifecycleListener {
             @Nonnull String consumerId,
             @Nonnull ConsumerRecord<K, V> originalMessage,
             @Nonnull ProducerRecord<K, V> messageToRedelivery,
-            @Nonnull RuntimeException error) {
+            @Nonnull Exception error) {
     }
 
     default <K, V> void onMessageSkip(

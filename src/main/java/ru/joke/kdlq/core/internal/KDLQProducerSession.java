@@ -5,6 +5,7 @@ import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.joke.kdlq.core.KDLQConfiguration;
 import ru.joke.kdlq.core.KDLQLifecycleException;
 
 import javax.annotation.Nonnull;
@@ -24,10 +25,11 @@ final class KDLQProducerSession<K, V> {
     private final AtomicInteger usages;
     private volatile boolean isClosed;
 
-    KDLQProducerSession(final String sessionId, final Map<String, Object> properties) {
+    KDLQProducerSession(final String sessionId, final KDLQConfiguration configuration) {
         
-        final Map<String, Object> finalProperties = new HashMap<>(properties);
+        final Map<String, Object> finalProperties = new HashMap<>(configuration.producerProperties());
 
+        finalProperties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, configuration.bootstrapServers());
         finalProperties.putIfAbsent(ProducerConfig.RETRIES_CONFIG, 5);
         finalProperties.putIfAbsent(ProducerConfig.LINGER_MS_CONFIG, 50);
         finalProperties.putIfAbsent(ProducerConfig.ACKS_CONFIG, "all");

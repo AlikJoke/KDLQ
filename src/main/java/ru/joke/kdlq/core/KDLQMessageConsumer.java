@@ -13,9 +13,9 @@ public interface KDLQMessageConsumer<K, V> {
 
         OK,
 
-        ERROR_DLQ_OK,
+        ROUTED_TO_DLQ,
 
-        ERROR_DLQ_MAX_ATTEMPTS_REACHED,
+        SKIPPED_DLQ_MAX_ATTEMPTS_REACHED,
 
         WILL_BE_REDELIVERED
     }

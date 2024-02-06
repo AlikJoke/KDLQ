@@ -29,10 +29,10 @@ public final class DefaultKDLQMessageConsumer<K, V> implements KDLQMessageConsum
             case OK -> Status.OK;
             case MUST_BE_REDELIVERED -> this.messageSender.redeliver(message)
                                                 ? Status.WILL_BE_REDELIVERED
-                                                : Status.ERROR_DLQ_OK;
+                                                : Status.ROUTED_TO_DLQ;
             case ERROR -> this.messageSender.sendToDLQ(message)
-                                                ? Status.ERROR_DLQ_OK
-                                                : Status.ERROR_DLQ_MAX_ATTEMPTS_REACHED;
+                                                ? Status.ROUTED_TO_DLQ
+                                                : Status.SKIPPED_DLQ_MAX_ATTEMPTS_REACHED;
         };
     }
 

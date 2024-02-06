@@ -20,6 +20,7 @@ public final class KDLQMessageSender<K, V> implements Closeable {
 
     private static final String MESSAGE_KILLS_HEADER = "KDLQ_Kills";
     private static final String MESSAGE_PRC_MARKER_HEADER = "KDLQ_ProcessingMarker";
+    private static final String MESSAGE_REDELIVERY_ATTEMPTS_HEADER = "KDLQ_Redelivered";
 
     private static final int WAIT_TIMEOUT = 30;
 
@@ -41,30 +42,68 @@ public final class KDLQMessageSender<K, V> implements Closeable {
         this.producerSession = createProducerSession();
     }
 
-    public boolean redeliver(@Nonnull ConsumerRecord<K, V> message) {
+    public boolean redeliver(@Nonnull ConsumerRecord<K, V> originalMessage) {
 
-        // TODO
-        return false;
+        if (this.isClosed) {
+            throw new KDLQLifecycleException("Sender already closed");
+        }
+
+        final var listeners = this.dlqConfiguration.lifecycleListeners();
+        final int redelivered = getNextRedeliveryAttemptsCounter(originalMessage.headers());
+        final int maxRedeliveryAttempts = dlqConfiguration.maxRedeliveryAttemptsBeforeKill();
+        if (maxRedeliveryAttempts >= 0 && redelivered > maxRedeliveryAttempts) {
+            logger.warn("Max redelivery attempts count reached, message will be routed to DLQ");
+
+            return sendToDLQ(originalMessage);
+        }
+
+        final String targetQueue = this.dlqConfiguration.redeliveryQueueName() == null ? originalMessage.topic() : this.dlqConfiguration.redeliveryQueueName();
+        final ProducerRecord<K, V> recordToRedelivery = createRecord(
+                originalMessage,
+                MESSAGE_REDELIVERY_ATTEMPTS_HEADER,
+                redelivered,
+                targetQueue
+        );
+
+        try {
+            send(recordToRedelivery);
+        } catch (Exception ex) {
+            logger.error("Unable to redeliver message: " + dlqConfiguration.redeliveryQueueName(), ex);
+            listeners.forEach(l -> l.onMessageRedeliveryError(this.sourceProcessorId, originalMessage, recordToRedelivery, ex));
+
+            throw new KDLQException(ex);
+        }
+
+        listeners.forEach(l -> l.onMessageRedeliverySuccess(this.sourceProcessorId, originalMessage, recordToRedelivery));
+
+        return true;
     }
 
     public boolean sendToDLQ(@Nonnull ConsumerRecord<K, V> originalMessage) {
+
+        if (this.isClosed) {
+            throw new KDLQLifecycleException("Sender already closed");
+        }
+
         final var listeners = this.dlqConfiguration.lifecycleListeners();
-        final int killsCounter = getNextKillsCounter(originalMessage.headers());
-        if (killsCounter > dlqConfiguration.maxKills()) {
+        final int killsCounter = getNextRedeliveryAttemptsCounter(originalMessage.headers());
+        final int maxKills = dlqConfiguration.maxKills();
+        if (maxKills >= 0 && killsCounter > maxKills) {
             logger.warn("Max kills count reached, message will be skipped");
             listeners.forEach(l -> l.onMessageSkip(this.sourceProcessorId, originalMessage));
 
             return false;
         }
 
-        final ProducerRecord<K, V> dlqRecord = createRecord(originalMessage, dlqConfiguration, killsCounter);
+        final ProducerRecord<K, V> dlqRecord = createRecord(
+                originalMessage,
+                MESSAGE_KILLS_HEADER,
+                killsCounter,
+                this.dlqConfiguration.deadLetterQueueName()
+        );
 
         try {
-            this.producerSession.producer().send(dlqRecord, (recordMetadata, e) -> {
-                if (e != null) {
-                    throw new KDLQException(e);
-                }
-            }).get(WAIT_TIMEOUT, TimeUnit.SECONDS);
+            send(dlqRecord);
         } catch (Exception ex) {
             logger.error("Unable to send message to DLQ: " + dlqConfiguration.deadLetterQueueName(), ex);
             listeners.forEach(l -> l.onMessageKillError(this.sourceProcessorId, originalMessage, dlqRecord, ex));
@@ -94,10 +133,18 @@ public final class KDLQMessageSender<K, V> implements Closeable {
                 .ifPresent(session -> logger.info("Kafka DLQ message producer closed"));
     }
 
+    private void send(final ProducerRecord<K, V> record) throws Exception {
+        this.producerSession.producer().send(record, (recordMetadata, e) -> {
+            if (e != null) {
+                throw new KDLQException(e);
+            }
+        }).get(WAIT_TIMEOUT, TimeUnit.SECONDS);
+    }
+
     private KDLQProducerSession<K, V> createProducerSession() {
         final KDLQProducerSession<K, V> session = this.producersRegistry.registerIfNeed(
                 this.producerId,
-                () -> new KDLQProducerSession<>(this.producerId, dlqConfiguration.producerProperties())
+                () -> new KDLQProducerSession<>(this.producerId, this.dlqConfiguration)
         );
 
         if (!session.onUsage()) {
@@ -109,15 +156,16 @@ public final class KDLQMessageSender<K, V> implements Closeable {
 
     private ProducerRecord<K, V> createRecord(
             final ConsumerRecord<K, V> originalRecord,
-            final KDLQConfiguration dlqConfiguration,
-            final int nextKillsCounter) {
+            final String counterHeader,
+            final int counterValue,
+            final String targetQueue) {
 
         final var headers = new RecordHeaders(originalRecord.headers().toArray());
-        headers.add(this.headersService.createIntHeader(MESSAGE_KILLS_HEADER, nextKillsCounter));
+        headers.add(this.headersService.createIntHeader(counterHeader, counterValue));
         headers.add(this.headersService.createStringHeader(MESSAGE_PRC_MARKER_HEADER, this.sourceProcessorId));
 
         return new ProducerRecord<>(
-                dlqConfiguration.deadLetterQueueName(),
+                targetQueue,
                 null,
                 originalRecord.key(),
                 originalRecord.value(),
@@ -126,6 +174,14 @@ public final class KDLQMessageSender<K, V> implements Closeable {
     }
 
     private int getNextKillsCounter(final Headers originalHeaders) {
-        return this.headersService.getIntHeader(MESSAGE_KILLS_HEADER, originalHeaders).orElse(0) + 1;
+        return getNextCounterHeader(originalHeaders, MESSAGE_KILLS_HEADER);
+    }
+
+    private int getNextRedeliveryAttemptsCounter(final Headers originalHeaders) {
+        return getNextCounterHeader(originalHeaders, MESSAGE_REDELIVERY_ATTEMPTS_HEADER);
+    }
+
+    private int getNextCounterHeader(final Headers originalHeaders, final String header) {
+        return this.headersService.getIntHeader(header, originalHeaders).orElse(0) + 1;
     }
 }

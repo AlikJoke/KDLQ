@@ -21,7 +21,7 @@ public interface KDLQConfiguration {
 
     int maxKills();
 
-    int maxProcessingAttemptsCountBeforeKill();
+    int maxRedeliveryAttemptsBeforeKill();
 
     @Nonnull
     Set<KDLQMessageLifecycleListener> lifecycleListeners();
