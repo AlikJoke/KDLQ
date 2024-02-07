@@ -7,7 +7,7 @@ import javax.annotation.Nonnull;
 public interface KDLQMessageConsumer<K, V> {
 
     @Nonnull
-    Status accept(@Nonnull ConsumerRecord<K, V> message, @Nonnull KDLQMessageProcessor<K, V> messageProcessor);
+    Status accept(@Nonnull ConsumerRecord<K, V> message);
 
     enum Status {
 

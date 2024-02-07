@@ -9,11 +9,13 @@ import ru.joke.kdlq.core.KDLQConfiguration;
 import ru.joke.kdlq.core.KDLQLifecycleException;
 
 import javax.annotation.Nonnull;
+import javax.annotation.concurrent.ThreadSafe;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
+@ThreadSafe
 final class KDLQProducerSession<K, V> {
 
     private static final Logger logger = LoggerFactory.getLogger(KDLQProducerSession.class);
@@ -25,11 +27,11 @@ final class KDLQProducerSession<K, V> {
     private final AtomicInteger usages;
     private volatile boolean isClosed;
 
-    KDLQProducerSession(final String sessionId, final KDLQConfiguration configuration) {
+    KDLQProducerSession(@Nonnull final String sessionId, @Nonnull final KDLQConfiguration configuration) {
         
         final Map<String, Object> finalProperties = new HashMap<>(configuration.producerProperties());
 
-        finalProperties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, configuration.bootstrapServers());
+        finalProperties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, String.join(",", configuration.bootstrapServers()));
         finalProperties.putIfAbsent(ProducerConfig.RETRIES_CONFIG, 5);
         finalProperties.putIfAbsent(ProducerConfig.LINGER_MS_CONFIG, 50);
         finalProperties.putIfAbsent(ProducerConfig.ACKS_CONFIG, "all");
@@ -61,6 +63,14 @@ final class KDLQProducerSession<K, V> {
         return true;
     }
 
+    synchronized boolean onUsage() {
+        if (this.isClosed) {
+            return false;
+        }
+
+        return this.usages.incrementAndGet() > 0;
+    }
+
     @Nonnull
     String sessionId() {
         return this.sessionId;
@@ -69,13 +79,5 @@ final class KDLQProducerSession<K, V> {
     @Nonnull
     Producer<K, V> producer() {
         return this.producer;
-    }
-
-    synchronized boolean onUsage() {
-        if (this.isClosed) {
-            return false;
-        }
-
-        return this.usages.incrementAndGet() > 0;
     }
 }

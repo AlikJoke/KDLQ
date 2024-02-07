@@ -8,6 +8,9 @@ import java.util.Set;
 public interface KDLQConfiguration {
 
     @Nonnull
+    String id();
+
+    @Nonnull
     Set<String> bootstrapServers();
 
     @Nonnull
