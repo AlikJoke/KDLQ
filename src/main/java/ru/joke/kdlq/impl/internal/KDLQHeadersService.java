@@ -1,4 +1,4 @@
-package ru.joke.kdlq.core.internal;
+package ru.joke.kdlq.impl.internal;
 
 import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.header.Headers;

@@ -1,6 +1,6 @@
-package ru.joke.kdlq.core.internal;
+package ru.joke.kdlq.impl.internal;
 
-import ru.joke.kdlq.core.KDLQConfiguration;
+import ru.joke.kdlq.KDLQConfiguration;
 
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.ThreadSafe;

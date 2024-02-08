@@ -1,8 +1,8 @@
-package ru.joke.kdlq.core.std;
+package ru.joke.kdlq.impl;
 
-import ru.joke.kdlq.core.KDLQConfiguration;
-import ru.joke.kdlq.core.KDLQConfigurationException;
-import ru.joke.kdlq.core.KDLQMessageLifecycleListener;
+import ru.joke.kdlq.KDLQConfiguration;
+import ru.joke.kdlq.KDLQConfigurationException;
+import ru.joke.kdlq.KDLQMessageLifecycleListener;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;

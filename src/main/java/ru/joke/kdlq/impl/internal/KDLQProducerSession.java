@@ -1,12 +1,12 @@
-package ru.joke.kdlq.core.internal;
+package ru.joke.kdlq.impl.internal;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import ru.joke.kdlq.core.KDLQConfiguration;
-import ru.joke.kdlq.core.KDLQLifecycleException;
+import ru.joke.kdlq.KDLQConfiguration;
+import ru.joke.kdlq.KDLQLifecycleException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.ThreadSafe;

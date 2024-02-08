@@ -1,11 +1,11 @@
-package ru.joke.kdlq.core.std;
+package ru.joke.kdlq.impl;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import ru.joke.kdlq.core.*;
-import ru.joke.kdlq.core.internal.KDLQMessageSender;
-import ru.joke.kdlq.core.internal.KDLQMessageSenderFactory;
+import ru.joke.kdlq.*;
+import ru.joke.kdlq.impl.internal.KDLQMessageSender;
+import ru.joke.kdlq.impl.internal.KDLQMessageSenderFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.ThreadSafe;
@@ -81,7 +81,7 @@ public final class ConfigurableKDLQMessageConsumer<K, V> implements KDLQMessageC
         return switch (process(message)) {
             case OK -> Status.OK;
             case MUST_BE_REDELIVERED -> this.messageSender.redeliver(message)
-                                                                ? Status.WILL_BE_REDELIVERED
+                                                                ? Status.REDELIVERED
                                                                 : Status.ROUTED_TO_DLQ;
             case ERROR -> this.messageSender.sendToDLQ(message)
                                                 ? Status.ROUTED_TO_DLQ

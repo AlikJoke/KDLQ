@@ -1,4 +1,4 @@
-package ru.joke.kdlq.core.internal;
+package ru.joke.kdlq.impl.internal;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -6,8 +6,8 @@ import org.apache.kafka.common.header.Headers;
 import org.apache.kafka.common.header.internals.RecordHeaders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import ru.joke.kdlq.core.KDLQConfiguration;
-import ru.joke.kdlq.core.KDLQException;
+import ru.joke.kdlq.KDLQConfiguration;
+import ru.joke.kdlq.KDLQException;
 
 import javax.annotation.Nonnull;
 import java.util.concurrent.TimeUnit;
