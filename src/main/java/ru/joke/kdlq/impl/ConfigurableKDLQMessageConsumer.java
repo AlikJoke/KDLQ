@@ -14,6 +14,45 @@ import java.util.Objects;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+/**
+ * Default thread-safe implementation of the {@link KDLQMessageConsumer} that allows message
+ * processing to be performed in accordance with the specified {@link KDLQConfiguration}
+ * and the passed message processor {@link KDLQMessageProcessor}.<br>
+ * Example of usage:<br>
+ * <pre>
+ *     {@code
+ *         final var configuration = buildConfiguration();
+ *         final var consumer = new ConfigurableKDLQMessageConsumer("test", configuration, message -> {
+ *             if (!isMessageReadyToProcessing(message)) {
+ *                 return ProcessingStatus.MUST_BE_REDELIVERED;
+ *             }
+ *             handleMessage(message);
+ *             return ProcessingStatus.OK;
+ *         });
+ *
+ *         final ConsumerRecords<String, byte[]> records = kafkaConsumer.poll(Duration.ofMillis(Long.MAX_VALUE));
+ *         for (final ConsumerRecord<String, byte[]> record : records) {
+ *             try {
+ *                 final var status = consumer.accept(record);
+ *                 logger.debug("Message {} processed with status {}", record, status);
+ *             } catch (KDLQException ex) {
+ *                 logger.error("Error while processing message", ex);
+ *                 // rethrow or skip error
+ *             }
+ *         }
+ *
+ *         kafkaConsumer.commitSync();
+ *     }
+ * </pre>
+ * This example does not contain correct error handling, rebalancing and working with commit offsets.
+ *
+ * @param <K> type of the message key
+ * @param <V> type of the message body value
+ * @author Alik
+ * @see KDLQMessageConsumer
+ * @see KDLQMessageProcessor
+ * @see KDLQConfiguration
+ */
 @ThreadSafe
 public final class ConfigurableKDLQMessageConsumer<K, V> implements KDLQMessageConsumer<K, V>, Closeable {
 

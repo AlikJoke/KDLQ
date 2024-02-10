@@ -10,6 +10,12 @@ import javax.annotation.concurrent.Immutable;
 import javax.annotation.concurrent.ThreadSafe;
 import java.util.*;
 
+/**
+ * Default immutable implementation of the KDLQ configuration {@link KDLQConfiguration}.
+ *
+ * @author Alik
+ * @see KDLQConfiguration
+ */
 @ThreadSafe
 @Immutable
 public final class ImmutableKDLQConfiguration implements KDLQConfiguration {

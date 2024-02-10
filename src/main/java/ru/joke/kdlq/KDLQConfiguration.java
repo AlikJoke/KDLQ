@@ -6,8 +6,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Configuration of the KDLQ, which defines parameters for connecting to the Kafka broker to send erroneous messages to the broker’s topic,
- * as well as settings for message redelivery in case of errors.<br>
+ * Configuration of the KDLQ, which defines parameters for connecting to the Kafka broker to send erroneous
+ * messages to the broker’s topic, as well as settings for message redelivery in case of errors.<br>
  *
  * The configuration allows you to define:
  * <ul>
