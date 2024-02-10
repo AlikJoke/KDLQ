@@ -38,16 +38,16 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
             int maxRedeliveryAttemptsBeforeKill,
             @Nonnull Set<KDLQMessageLifecycleListener> lifecycleListeners) {
 
-        if (bootstrapServers.isEmpty()) {
+        if (Objects.requireNonNull(bootstrapServers, "bootstrapServers").isEmpty()) {
             throw new KDLQConfigurationException("Bootstrap servers must be not empty");
         }
 
-        if (deadLetterQueueName.isBlank()) {
+        if (Objects.requireNonNull(deadLetterQueueName, "deadLetterQueueName").isBlank()) {
             throw new KDLQConfigurationException("DLQ name be not empty");
         }
 
         this.bootstrapServers = Set.copyOf(bootstrapServers);
-        this.deadLetterQueueName = Objects.requireNonNull(deadLetterQueueName, "deadLetterQueueName");
+        this.deadLetterQueueName = deadLetterQueueName;
         this.redeliveryQueueName = redeliveryQueueName;
         this.producerProperties = Map.copyOf(producerProperties);
         this.maxKills = maxKills;
@@ -148,14 +148,20 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
         private int maxRedeliveryAttemptsBeforeKill = -1;
 
         @Nonnull
+        public Builder withRedeliveryQueueName(@Nonnull String redeliveryQueueName) {
+            this.redeliveryQueueName = redeliveryQueueName;
+            return this;
+        }
+
+        @Nonnull
         public Builder withLifecycleListener(@Nonnull KDLQMessageLifecycleListener listener) {
-            this.lifecycleListeners.add(listener);
+            this.lifecycleListeners.add(Objects.requireNonNull(listener, "listener"));
             return this;
         }
 
         @Nonnull
         public Builder withLifecycleListeners(@Nonnull Set<KDLQMessageLifecycleListener> listeners) {
-            this.lifecycleListeners.addAll(listeners);
+            this.lifecycleListeners.addAll(Objects.requireNonNull(listeners, "listeners"));
             return this;
         }
 
@@ -173,7 +179,7 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
 
         @Nonnull
         public Builder withProducerProperties(@Nonnull Map<String, Object> producerProperties) {
-            this.producerProperties.putAll(producerProperties);
+            this.producerProperties.putAll(Objects.requireNonNull(producerProperties, "producerProperties"));
             return this;
         }
 
