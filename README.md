@@ -1,7 +1,7 @@
 # KDLQ
 
-The library implements functionality for Kafka redelivery to reprocess messages and send messages to a separate dead letter queue (DLQ). 
-The library provides 4 basic abstractions:
+A library implements functionality for Kafka redelivery to reprocess messages and send messages to a separate dead letter queue (DLQ). 
+Library provides 4 basic abstractions:
 1. ```ru.joke.kdlq.KDLQConfiguration```: configuration that sets all necessary settings for the library's operation: 
 broker servers, DLQ topic name for erroneous messages, optional topic name for redelivery, maximum number of retries for faulty messages in DLQ, 
 maximum number of redeliveries before sending to DLQ, and an optional set of message lifecycle listeners.
