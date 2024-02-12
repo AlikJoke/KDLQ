@@ -9,7 +9,6 @@ import ru.joke.kdlq.impl.internal.KDLQMessageSenderFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.ThreadSafe;
-import java.io.Closeable;
 import java.util.Objects;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -54,7 +53,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * @see KDLQConfiguration
  */
 @ThreadSafe
-public final class ConfigurableKDLQMessageConsumer<K, V> implements KDLQMessageConsumer<K, V>, Closeable {
+public final class ConfigurableKDLQMessageConsumer<K, V> implements KDLQMessageConsumer<K, V>, AutoCloseable {
 
     private static final Logger logger = LoggerFactory.getLogger(ConfigurableKDLQMessageConsumer.class);
 
@@ -70,11 +69,24 @@ public final class ConfigurableKDLQMessageConsumer<K, V> implements KDLQMessageC
             @Nonnull String id,
             @Nonnull KDLQConfiguration dlqConfiguration,
             @Nonnull KDLQMessageProcessor<K, V> messageProcessor) {
+        this(
+                id,
+                dlqConfiguration,
+                messageProcessor,
+                KDLQMessageSenderFactory.getInstance().create(id, dlqConfiguration)
+        );
+    }
+
+    ConfigurableKDLQMessageConsumer(
+            @Nonnull String id,
+            @Nonnull KDLQConfiguration dlqConfiguration,
+            @Nonnull KDLQMessageProcessor<K, V> messageProcessor,
+            @Nonnull KDLQMessageSender<K, V> messageSender) {
         this.id = Objects.requireNonNull(id, "id");
         this.dlqConfiguration = Objects.requireNonNull(dlqConfiguration, "dlqConfiguration");
         this.messageProcessor = Objects.requireNonNull(messageProcessor, "messageProcessor");
         this.lock = new ReentrantReadWriteLock();
-        this.messageSender = KDLQMessageSenderFactory.getInstance().create(id, dlqConfiguration);
+        this.messageSender = Objects.requireNonNull(messageSender, "messageSender");
     }
 
     @Override
@@ -151,12 +163,6 @@ public final class ConfigurableKDLQMessageConsumer<K, V> implements KDLQMessageC
             final ConsumerRecord<K, V> message,
             final KDLQMessageProcessor.ProcessingStatus processingStatus,
             final RuntimeException processingError) {
-        this.dlqConfiguration.lifecycleListeners().forEach(l -> {
-            if (processingError != null) {
-                l.onErrorMessageProcessing(this.id, message, processingStatus, processingError);
-            } else {
-                l.onSuccessMessageProcessing(this.id, message, processingStatus);
-            }
-        });
+        this.dlqConfiguration.lifecycleListeners().forEach(l -> l.onMessageProcessing(this.id, message, processingStatus, processingError));
     }
 }

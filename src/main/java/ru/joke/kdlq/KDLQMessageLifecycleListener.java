@@ -4,6 +4,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Message lifecycle listener. As various actions are performed on messages, listener callbacks
@@ -93,7 +94,7 @@ public interface KDLQMessageLifecycleListener {
     }
 
     /**
-     * Called when a message is successfully processed by the application handler.
+     * Called when a message is processed by the application handler.
      *
      * @param consumerId id of the source processor to mark message, can not be {@code null}.
      * @param message source message, can not be {@code null}.
@@ -102,26 +103,10 @@ public interface KDLQMessageLifecycleListener {
      * @param <V> type of the message body value
      * @see KDLQMessageProcessor.ProcessingStatus
      */
-    default <K, V> void onSuccessMessageProcessing(
-            @Nonnull String consumerId,
-            @Nonnull ConsumerRecord<K, V> message,
-            @Nonnull KDLQMessageProcessor.ProcessingStatus processingStatus) {
-    }
-
-    /**
-     * Called if an error occurs while processing by the application handler.
-     *
-     * @param consumerId id of the source processor to mark message, can not be {@code null}.
-     * @param message source message, can not be {@code null}.
-     * @param processingStatus status of the processing, can not be {@code null}.
-     * @param error error which occurs while processing by the application handler, can not be {@code null}.
-     * @param <K> type of the message key
-     * @param <V> type of the message body value
-     */
-    default <K, V> void onErrorMessageProcessing(
+    default <K, V> void onMessageProcessing(
             @Nonnull String consumerId,
             @Nonnull ConsumerRecord<K, V> message,
             @Nonnull KDLQMessageProcessor.ProcessingStatus processingStatus,
-            @Nonnull RuntimeException error) {
+            @Nullable RuntimeException error) {
     }
 }

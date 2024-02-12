@@ -13,4 +13,8 @@ public final class KDLQMessageMustBeRedeliveredException extends KDLQException {
     public KDLQMessageMustBeRedeliveredException(@Nonnull Exception cause) {
         super(cause);
     }
+
+    public KDLQMessageMustBeRedeliveredException(@Nonnull String message) {
+        super(message);
+    }
 }
