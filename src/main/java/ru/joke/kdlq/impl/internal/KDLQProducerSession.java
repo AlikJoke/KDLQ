@@ -27,8 +27,17 @@ final class KDLQProducerSession<K, V> {
     private final AtomicInteger usages;
     private volatile boolean isClosed;
 
-    KDLQProducerSession(@Nonnull final String sessionId, @Nonnull final KDLQConfiguration configuration) {
-        
+    KDLQProducerSession(@Nonnull final String sessionId, @Nonnull final KafkaProducer<K, V> producer) {
+        this.producer = producer;
+        this.sessionId = sessionId;
+        this.usages = new AtomicInteger(0);
+    }
+
+    KDLQProducerSession(@Nonnull final KDLQConfiguration configuration) {
+        this(configuration.id(), new KafkaProducer<>(composePropertiesMap(configuration)));
+    }
+
+    private static Map<String, Object> composePropertiesMap(final KDLQConfiguration configuration) {
         final Map<String, Object> finalProperties = new HashMap<>(configuration.producerProperties());
 
         finalProperties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, String.join(",", configuration.bootstrapServers()));
@@ -37,11 +46,9 @@ final class KDLQProducerSession<K, V> {
         finalProperties.putIfAbsent(ProducerConfig.ACKS_CONFIG, "all");
         finalProperties.putIfAbsent(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, 120_000);
         finalProperties.putIfAbsent(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, 30_000);
-        finalProperties.putIfAbsent(ProducerConfig.CLIENT_ID_CONFIG, KDLQ_ID);
+        finalProperties.put(ProducerConfig.CLIENT_ID_CONFIG, KDLQ_ID);
 
-        this.producer = new KafkaProducer<>(finalProperties);
-        this.sessionId = sessionId;
-        this.usages = new AtomicInteger(0);
+        return finalProperties;
     }
 
     synchronized boolean close(final int timeoutSeconds, final Runnable onCloseCallback) {

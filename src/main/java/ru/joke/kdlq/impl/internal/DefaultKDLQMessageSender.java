@@ -128,7 +128,7 @@ final class DefaultKDLQMessageSender<K, V> implements KDLQMessageSender<K, V> {
     private KDLQProducerSession<K, V> createProducerSession() {
         final KDLQProducerSession<K, V> session = this.producersRegistry.registerIfNeed(
                 this.producerId,
-                () -> new KDLQProducerSession<>(this.producerId, this.dlqConfiguration)
+                () -> new KDLQProducerSession<>(this.dlqConfiguration)
         );
 
         if (!session.onUsage()) {
