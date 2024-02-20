@@ -16,11 +16,11 @@ final class DefaultKDLQMessageSender<K, V> implements KDLQMessageSender<K, V> {
 
     private static final Logger logger = LoggerFactory.getLogger(DefaultKDLQMessageSender.class);
 
-    private static final String MESSAGE_KILLS_HEADER = "KDLQ_Kills";
-    private static final String MESSAGE_PRC_MARKER_HEADER = "KDLQ_ProcessingMarker";
-    private static final String MESSAGE_REDELIVERY_ATTEMPTS_HEADER = "KDLQ_Redelivered";
-
     private static final int WAIT_TIMEOUT = 30;
+
+    static final String MESSAGE_KILLS_HEADER = "KDLQ_Kills";
+    static final String MESSAGE_PRC_MARKER_HEADER = "KDLQ_ProcessingMarker";
+    static final String MESSAGE_REDELIVERY_ATTEMPTS_HEADER = "KDLQ_Redelivered";
 
     private final KDLQHeadersService headersService;
     private final KDLQConfiguration dlqConfiguration;
@@ -30,11 +30,18 @@ final class DefaultKDLQMessageSender<K, V> implements KDLQMessageSender<K, V> {
     private final KDLQProducersRegistry producersRegistry;
 
     DefaultKDLQMessageSender(@Nonnull String sourceProcessorId, @Nonnull KDLQConfiguration dlqConfiguration) {
+        this(sourceProcessorId, dlqConfiguration, KDLQProducersRegistryHolder.get());
+    }
+
+    DefaultKDLQMessageSender(
+            @Nonnull String sourceProcessorId,
+            @Nonnull KDLQConfiguration dlqConfiguration,
+            @Nonnull KDLQProducersRegistry producersRegistry) {
         this.dlqConfiguration = dlqConfiguration;
         this.sourceProcessorId = sourceProcessorId;
         this.producerId = dlqConfiguration.id();
         this.headersService = new KDLQHeadersService();
-        this.producersRegistry = KDLQProducersRegistryHolder.get();
+        this.producersRegistry = producersRegistry;
         this.producerSession = createProducerSession();
     }
 
@@ -46,8 +53,9 @@ final class DefaultKDLQMessageSender<K, V> implements KDLQMessageSender<K, V> {
         final int maxRedeliveryAttempts = dlqConfiguration.maxRedeliveryAttemptsBeforeKill();
         if (maxRedeliveryAttempts >= 0 && redelivered > maxRedeliveryAttempts) {
             logger.warn("Max redelivery attempts count reached, message will be routed to DLQ");
+            sendToDLQ(originalMessage);
 
-            return sendToDLQ(originalMessage);
+            return false;
         }
 
         final String targetQueue = this.dlqConfiguration.redeliveryQueueName() == null ? originalMessage.topic() : this.dlqConfiguration.redeliveryQueueName();
@@ -76,7 +84,7 @@ final class DefaultKDLQMessageSender<K, V> implements KDLQMessageSender<K, V> {
     public boolean sendToDLQ(@Nonnull ConsumerRecord<K, V> originalMessage) {
 
         final var listeners = this.dlqConfiguration.lifecycleListeners();
-        final int killsCounter = getNextRedeliveryAttemptsCounter(originalMessage.headers());
+        final int killsCounter = getNextKillsCounter(originalMessage.headers());
         final int maxKills = dlqConfiguration.maxKills();
         if (maxKills >= 0 && killsCounter > maxKills) {
             logger.warn("Max kills count reached, message will be skipped");
