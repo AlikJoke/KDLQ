@@ -27,7 +27,7 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
     private final int maxKills;
     private final int maxRedeliveryAttemptsBeforeKill;
     private final Set<KDLQMessageLifecycleListener> lifecycleListeners;
-    private final boolean addInformationalHeaders;
+    private final boolean addOptionalInformationalHeaders;
     private final String id;
 
     public ImmutableKDLQConfiguration(
@@ -38,7 +38,7 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
             int maxKills,
             int maxRedeliveryAttemptsBeforeKill,
             @Nonnull Set<KDLQMessageLifecycleListener> lifecycleListeners,
-            boolean addInformationalHeaders) {
+            boolean addOptionalInformationalHeaders) {
 
         if (Objects.requireNonNull(bootstrapServers, "bootstrapServers").isEmpty()) {
             throw new KDLQConfigurationException("Bootstrap servers must be not empty");
@@ -55,7 +55,7 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
         this.maxKills = maxKills;
         this.maxRedeliveryAttemptsBeforeKill = maxRedeliveryAttemptsBeforeKill;
         this.lifecycleListeners = Set.copyOf(lifecycleListeners);
-        this.addInformationalHeaders = addInformationalHeaders;
+        this.addOptionalInformationalHeaders = addOptionalInformationalHeaders;
         this.id = this.bootstrapServers.hashCode() + "_" + this.producerProperties.hashCode();
     }
 
@@ -125,8 +125,8 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
     }
 
     @Override
-    public boolean addInformationalHeaders() {
-        return this.addInformationalHeaders;
+    public boolean addOptionalInformationalHeaders() {
+        return this.addOptionalInformationalHeaders;
     }
 
     @Override
@@ -154,7 +154,7 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
         private String redeliveryQueueName;
         private int maxKills = -1;
         private int maxRedeliveryAttemptsBeforeKill = -1;
-        private boolean addInformationalHeaders;
+        private boolean addOptionalInformationalHeaders;
 
         @Nonnull
         public Builder withRedeliveryQueueName(@Nonnull String redeliveryQueueName) {
@@ -193,7 +193,7 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
         }
 
         public Builder addInformationalHeaders(boolean addInformationalHeaders) {
-            this.addInformationalHeaders = addInformationalHeaders;
+            this.addOptionalInformationalHeaders = addInformationalHeaders;
             return this;
         }
 
@@ -207,7 +207,7 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
                     this.maxKills,
                     this.maxRedeliveryAttemptsBeforeKill,
                     this.lifecycleListeners,
-                    this.addInformationalHeaders
+                    this.addOptionalInformationalHeaders
             );
         }
     }

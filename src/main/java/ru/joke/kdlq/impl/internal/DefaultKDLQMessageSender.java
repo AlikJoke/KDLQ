@@ -158,7 +158,7 @@ final class DefaultKDLQMessageSender<K, V> implements KDLQMessageSender<K, V> {
         final var headers = new RecordHeaders(originalRecord.headers().toArray());
         headers.add(this.headersService.createIntHeader(counterHeader, counterValue));
         headers.add(this.headersService.createStringHeader(MESSAGE_PRC_MARKER_HEADER, this.sourceProcessorId));
-        if (this.dlqConfiguration.addInformationalHeaders()) {
+        if (this.dlqConfiguration.addOptionalInformationalHeaders()) {
             headers.add(this.headersService.createLongHeader(MESSAGE_TIMESTAMP_HEADER, originalRecord.timestamp()));
             headers.add(this.headersService.createLongHeader(MESSAGE_OFFSET_HEADER, originalRecord.offset()));
             headers.add(this.headersService.createIntHeader(MESSAGE_PARTITION_HEADER, originalRecord.partition()));

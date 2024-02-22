@@ -98,8 +98,8 @@ public interface KDLQConfiguration {
     Set<KDLQMessageLifecycleListener> lifecycleListeners();
 
     /**
-     * Returns whether additional information headers should be added to the message.
-     * @return {@code true} if additional information headers should be added to the message, {@code false} otherwise.
+     * Returns whether optional information headers should be added to the message.
+     * @return {@code true} if optional information headers should be added to the message, {@code false} otherwise.
      */
-    boolean addInformationalHeaders();
+    boolean addOptionalInformationalHeaders();
 }

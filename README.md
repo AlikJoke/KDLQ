@@ -31,7 +31,7 @@ from DLQ, and the maximum number of message sends to DLQ is set to ```1```, in c
 ## Informational and marker message headers
 If a message has been redelivered or sent to DLQ, the library adds a redelivery counter (```KDLQ_Redelivered``` / ```KDLQ_Kills```) to the headers of that message. 
 Additionally, a ```KDLQ_PrcMarker``` header is added, containing a handler ID marker (maybe required for further message filtering in the handler code).
-Optionally, depending on the configuration (```ru.joke.kdlq.KDLQConfiguration.addInformationalHeaders```), to headers can be added (from the original message):
+Optionally, depending on the configuration (```ru.joke.kdlq.KDLQConfiguration.addOptionalInformationalHeaders```), to headers can be added (from the original message):
 1. Offset (```KDLQ_OrigOffset```)
 2. Partition (```KDLQ_OrigPartition```)
 3. Timestamp (```KDLQ_OrigTs```).
