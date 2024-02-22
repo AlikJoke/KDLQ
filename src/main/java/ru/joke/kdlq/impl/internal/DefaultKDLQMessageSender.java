@@ -19,7 +19,10 @@ final class DefaultKDLQMessageSender<K, V> implements KDLQMessageSender<K, V> {
     private static final int WAIT_TIMEOUT = 30;
 
     static final String MESSAGE_KILLS_HEADER = "KDLQ_Kills";
-    static final String MESSAGE_PRC_MARKER_HEADER = "KDLQ_ProcessingMarker";
+    static final String MESSAGE_PRC_MARKER_HEADER = "KDLQ_PrcMarker";
+    static final String MESSAGE_TIMESTAMP_HEADER = "KDLQ_OrigTs";
+    static final String MESSAGE_OFFSET_HEADER = "KDLQ_OrigOffset";
+    static final String MESSAGE_PARTITION_HEADER = "KDLQ_OrigPartition";
     static final String MESSAGE_REDELIVERY_ATTEMPTS_HEADER = "KDLQ_Redelivered";
 
     private final KDLQHeadersService headersService;
@@ -155,6 +158,11 @@ final class DefaultKDLQMessageSender<K, V> implements KDLQMessageSender<K, V> {
         final var headers = new RecordHeaders(originalRecord.headers().toArray());
         headers.add(this.headersService.createIntHeader(counterHeader, counterValue));
         headers.add(this.headersService.createStringHeader(MESSAGE_PRC_MARKER_HEADER, this.sourceProcessorId));
+        if (this.dlqConfiguration.addInformationalHeaders()) {
+            headers.add(this.headersService.createLongHeader(MESSAGE_TIMESTAMP_HEADER, originalRecord.timestamp()));
+            headers.add(this.headersService.createLongHeader(MESSAGE_OFFSET_HEADER, originalRecord.offset()));
+            headers.add(this.headersService.createIntHeader(MESSAGE_PARTITION_HEADER, originalRecord.partition()));
+        }
 
         return new ProducerRecord<>(
                 targetQueue,

@@ -16,6 +16,11 @@ final class KDLQHeadersService {
     }
 
     @Nonnull
+    Header createLongHeader(@Nonnull final String headerName, final long value) {
+        return new RecordHeader(headerName, longToByteArray(value));
+    }
+
+    @Nonnull
     Header createStringHeader(@Nonnull final String headerName, final String value) {
         return new RecordHeader(headerName, value.getBytes(StandardCharsets.UTF_8));
     }
@@ -44,7 +49,17 @@ final class KDLQHeadersService {
 
     private byte[] intToByteArray(final int value) {
         final byte[] result = new byte[Integer.BYTES];
-        int length = result.length;
+        final int length = result.length;
+        for (int i = 0; i < length; i++) {
+            result[length - i - 1] = (byte) ((value >> 8 * i) & 0xFF);
+        }
+
+        return result;
+    }
+
+    private byte[] longToByteArray(final long value) {
+        final byte[] result = new byte[Long.BYTES];
+        final int length = result.length;
         for (int i = 0; i < length; i++) {
             result[length - i - 1] = (byte) ((value >> 8 * i) & 0xFF);
         }

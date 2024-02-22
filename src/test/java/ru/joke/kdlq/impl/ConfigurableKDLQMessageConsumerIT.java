@@ -127,7 +127,7 @@ public class ConfigurableKDLQMessageConsumerIT {
 
         assertEquals(2, record.headers().toArray().length, "Count of headers must be equal");
 
-        final var markerHeader = record.headers().lastHeader("KDLQ_ProcessingMarker");
+        final var markerHeader = record.headers().lastHeader("KDLQ_PrcMarker");
         assertNotNull(markerHeader, "Marker header must be not null");
         assertArrayEquals(CONSUMER_MARKER.getBytes(StandardCharsets.UTF_8), markerHeader.value(), "Marker header must be equal");
 

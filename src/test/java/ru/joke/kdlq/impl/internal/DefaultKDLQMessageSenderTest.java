@@ -170,6 +170,18 @@ public class DefaultKDLQMessageSenderTest {
             final var counterHeader = headers.lastHeader(messageShouldBeSentToDLQ ? MESSAGE_KILLS_HEADER : MESSAGE_REDELIVERY_ATTEMPTS_HEADER);
             assertArrayEquals(expectedCounterHeader.value(), counterHeader.value(), "Redelivery counter must be equal");
 
+            final var offsetHeader = headers.lastHeader(MESSAGE_OFFSET_HEADER);
+            final var headerFromOffset = headersService.createLongHeader(MESSAGE_OFFSET_HEADER, message.offset());
+            assertArrayEquals(headerFromOffset.value(), offsetHeader.value(), "Offset must be equal");
+
+            final var partitionHeader = headers.lastHeader(MESSAGE_PARTITION_HEADER);
+            final var headerFromPartition = headersService.createIntHeader(MESSAGE_PARTITION_HEADER, message.partition());
+            assertArrayEquals(headerFromPartition.value(), partitionHeader.value(), "Partition must be equal");
+
+            final var timestampHeader = headers.lastHeader(MESSAGE_TIMESTAMP_HEADER);
+            final var headerFromTimestamp = headersService.createLongHeader(MESSAGE_TIMESTAMP_HEADER, message.timestamp());
+            assertArrayEquals(headerFromTimestamp.value(), timestampHeader.value(), "Timestamp must be equal");
+
             lifecycleListenerChecks.accept(new TestContext<>(processorId, message, messageToSend, lifecycleListener));
             verifyNoMoreInteractions(lifecycleListener);
         }
@@ -199,6 +211,7 @@ public class DefaultKDLQMessageSenderTest {
                         .withLifecycleListener(listener)
                         .withMaxKills(maxKills)
                         .withMaxRedeliveryAttemptsBeforeKill(maxRedeliveryAttempts)
+                        .addInformationalHeaders(true)
                     .build(Set.of("srv:01"), DLQ_NAME);
     }
 

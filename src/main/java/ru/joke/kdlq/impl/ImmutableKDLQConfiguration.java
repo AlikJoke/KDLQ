@@ -27,6 +27,7 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
     private final int maxKills;
     private final int maxRedeliveryAttemptsBeforeKill;
     private final Set<KDLQMessageLifecycleListener> lifecycleListeners;
+    private final boolean addInformationalHeaders;
     private final String id;
 
     public ImmutableKDLQConfiguration(
@@ -36,7 +37,8 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
             @Nonnull Map<String, Object> producerProperties,
             int maxKills,
             int maxRedeliveryAttemptsBeforeKill,
-            @Nonnull Set<KDLQMessageLifecycleListener> lifecycleListeners) {
+            @Nonnull Set<KDLQMessageLifecycleListener> lifecycleListeners,
+            boolean addInformationalHeaders) {
 
         if (Objects.requireNonNull(bootstrapServers, "bootstrapServers").isEmpty()) {
             throw new KDLQConfigurationException("Bootstrap servers must be not empty");
@@ -53,6 +55,7 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
         this.maxKills = maxKills;
         this.maxRedeliveryAttemptsBeforeKill = maxRedeliveryAttemptsBeforeKill;
         this.lifecycleListeners = Set.copyOf(lifecycleListeners);
+        this.addInformationalHeaders = addInformationalHeaders;
         this.id = this.bootstrapServers.hashCode() + "_" + this.producerProperties.hashCode();
     }
 
@@ -62,7 +65,7 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
             @Nonnull Map<String, Object> producerProperties,
             int maxKills,
             int maxRedeliveryAttemptsBeforeKill) {
-        this(bootstrapServers, deadLetterQueueName, null, producerProperties, maxKills, maxRedeliveryAttemptsBeforeKill, Collections.emptySet());
+        this(bootstrapServers, deadLetterQueueName, null, producerProperties, maxKills, maxRedeliveryAttemptsBeforeKill, Collections.emptySet(), false);
     }
 
     public ImmutableKDLQConfiguration(
@@ -72,7 +75,7 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
             @Nonnull Map<String, Object> producerProperties,
             int maxKills,
             int maxRedeliveryAttemptsBeforeKill) {
-        this(bootstrapServers, deadLetterQueueName, redeliveryQueueName, producerProperties, maxKills, maxRedeliveryAttemptsBeforeKill, Collections.emptySet());
+        this(bootstrapServers, deadLetterQueueName, redeliveryQueueName, producerProperties, maxKills, maxRedeliveryAttemptsBeforeKill, Collections.emptySet(), false);
     }
 
     @Nonnull
@@ -122,6 +125,11 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
     }
 
     @Override
+    public boolean addInformationalHeaders() {
+        return this.addInformationalHeaders;
+    }
+
+    @Override
     public String toString() {
         return "DefaultKDLQConfiguration{"
                 + "id=" + id + '\''
@@ -146,6 +154,7 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
         private String redeliveryQueueName;
         private int maxKills = -1;
         private int maxRedeliveryAttemptsBeforeKill = -1;
+        private boolean addInformationalHeaders;
 
         @Nonnull
         public Builder withRedeliveryQueueName(@Nonnull String redeliveryQueueName) {
@@ -183,6 +192,11 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
             return this;
         }
 
+        public Builder addInformationalHeaders(boolean addInformationalHeaders) {
+            this.addInformationalHeaders = addInformationalHeaders;
+            return this;
+        }
+
         @Nonnull
         public KDLQConfiguration build(@Nonnull Set<String> bootstrapServers, @Nonnull String deadLetterQueueName) {
             return new ImmutableKDLQConfiguration(
@@ -192,7 +206,8 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
                     this.producerProperties,
                     this.maxKills,
                     this.maxRedeliveryAttemptsBeforeKill,
-                    this.lifecycleListeners
+                    this.lifecycleListeners,
+                    this.addInformationalHeaders
             );
         }
     }
