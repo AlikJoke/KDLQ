@@ -1,5 +1,6 @@
 package ru.joke.kdlq.internal.util;
 
+import java.util.Collection;
 import java.util.function.Supplier;
 
 public abstract class Args {
@@ -17,6 +18,17 @@ public abstract class Args {
 
     public static String requireNotEmpty(
             final String value,
+            final Supplier<RuntimeException> exceptionSupplier
+    ) {
+        if (value == null || value.isEmpty()) {
+            throw exceptionSupplier.get();
+        }
+
+        return value;
+    }
+
+    public static <T> Collection<T> requireNotEmpty(
+            final Collection<T> value,
             final Supplier<RuntimeException> exceptionSupplier
     ) {
         if (value == null || value.isEmpty()) {

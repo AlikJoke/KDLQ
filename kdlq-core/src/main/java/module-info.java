@@ -1,4 +1,5 @@
 module kdlq.core {
+
     requires kafka.clients;
     requires org.slf4j;
     requires jsr305;

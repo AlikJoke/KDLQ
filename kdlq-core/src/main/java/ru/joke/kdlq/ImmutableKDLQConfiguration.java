@@ -1,5 +1,8 @@
 package ru.joke.kdlq;
 
+import ru.joke.kdlq.internal.util.Args;
+import ru.joke.kdlq.spi.KDLQDataConverter;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -17,39 +20,28 @@ import java.util.*;
 public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
 
     private final Set<String> bootstrapServers;
-    private final String deadLetterQueueName;
-    private final String redeliveryQueueName;
+    private final KDLQConfiguration.DLQ dlq;
+    private final KDLQConfiguration.Redelivery redelivery;
     private final Map<String, Object> producerProperties;
-    private final int maxKills;
-    private final int maxRedeliveryAttemptsBeforeKill;
     private final Set<KDLQMessageLifecycleListener> lifecycleListeners;
     private final boolean addOptionalInformationalHeaders;
     private final String id;
 
     public ImmutableKDLQConfiguration(
             @Nonnull Set<String> bootstrapServers,
-            @Nonnull String deadLetterQueueName,
-            @Nullable String redeliveryQueueName,
             @Nonnull Map<String, Object> producerProperties,
-            int maxKills,
-            int maxRedeliveryAttemptsBeforeKill,
+            @Nonnull KDLQConfiguration.DLQ dlq,
+            @Nonnull KDLQConfiguration.Redelivery redelivery,
             @Nonnull Set<KDLQMessageLifecycleListener> lifecycleListeners,
-            boolean addOptionalInformationalHeaders) {
+            boolean addOptionalInformationalHeaders
+    ) {
 
-        if (Objects.requireNonNull(bootstrapServers, "bootstrapServers").isEmpty()) {
-            throw new KDLQConfigurationException("Bootstrap servers must be not empty");
-        }
-
-        if (Objects.requireNonNull(deadLetterQueueName, "deadLetterQueueName").isBlank()) {
-            throw new KDLQConfigurationException("DLQ name be not empty");
-        }
+        Args.requireNotEmpty(bootstrapServers, () -> new KDLQConfigurationException("Bootstrap servers must be not empty"));
 
         this.bootstrapServers = Set.copyOf(bootstrapServers);
-        this.deadLetterQueueName = deadLetterQueueName;
-        this.redeliveryQueueName = redeliveryQueueName;
+        this.dlq = Args.requireNotNull(dlq, () -> new KDLQConfigurationException("DLQ be not empty"));
+        this.redelivery = Args.requireNotNull(redelivery, () -> new KDLQConfigurationException("Redelivery be not empty"));
         this.producerProperties = Map.copyOf(producerProperties);
-        this.maxKills = maxKills;
-        this.maxRedeliveryAttemptsBeforeKill = maxRedeliveryAttemptsBeforeKill;
         this.lifecycleListeners = Set.copyOf(lifecycleListeners);
         this.addOptionalInformationalHeaders = addOptionalInformationalHeaders;
         this.id = this.bootstrapServers.hashCode() + "_" + this.producerProperties.hashCode();
@@ -57,21 +49,11 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
 
     public ImmutableKDLQConfiguration(
             @Nonnull Set<String> bootstrapServers,
-            @Nonnull String deadLetterQueueName,
             @Nonnull Map<String, Object> producerProperties,
-            int maxKills,
-            int maxRedeliveryAttemptsBeforeKill) {
-        this(bootstrapServers, deadLetterQueueName, null, producerProperties, maxKills, maxRedeliveryAttemptsBeforeKill, Collections.emptySet(), false);
-    }
-
-    public ImmutableKDLQConfiguration(
-            @Nonnull Set<String> bootstrapServers,
-            @Nonnull String deadLetterQueueName,
-            @Nullable String redeliveryQueueName,
-            @Nonnull Map<String, Object> producerProperties,
-            int maxKills,
-            int maxRedeliveryAttemptsBeforeKill) {
-        this(bootstrapServers, deadLetterQueueName, redeliveryQueueName, producerProperties, maxKills, maxRedeliveryAttemptsBeforeKill, Collections.emptySet(), false);
+            @Nonnull KDLQConfiguration.DLQ dlq,
+            @Nonnull KDLQConfiguration.Redelivery redelivery
+    ) {
+        this(bootstrapServers, producerProperties, dlq, redelivery, Collections.emptySet(), false);
     }
 
     @Nonnull
@@ -88,30 +70,20 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
 
     @Nonnull
     @Override
-    public String deadLetterQueueName() {
-        return this.deadLetterQueueName;
+    public KDLQConfiguration.DLQ dlq() {
+        return this.dlq;
     }
 
-    @Nullable
+    @Nonnull
     @Override
-    public String redeliveryQueueName() {
-        return this.redeliveryQueueName;
+    public KDLQConfiguration.Redelivery redelivery() {
+        return this.redelivery;
     }
 
     @Nonnull
     @Override
     public Map<String, Object> producerProperties() {
         return this.producerProperties;
-    }
-
-    @Override
-    public int maxKills() {
-        return this.maxKills;
-    }
-
-    @Override
-    public int maxRedeliveryAttemptsBeforeKill() {
-        return this.maxRedeliveryAttemptsBeforeKill;
     }
 
     @Nonnull
@@ -130,12 +102,125 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
         return "DefaultKDLQConfiguration{"
                 + "id=" + id + '\''
                 + ", bootstrapServers=" + bootstrapServers
-                + ", deadLetterQueueName='" + deadLetterQueueName + '\''
-                + ", redeliveryQueueName='" + redeliveryQueueName + '\''
-                + ", maxKills=" + maxKills
-                + ", maxRedeliveryAttemptsBeforeKill=" + maxRedeliveryAttemptsBeforeKill
+                + ", dlq='" + dlq + '\''
+                + ", redelivery='" + redelivery + '\''
                 + ", lifecycleListeners=" + lifecycleListeners
                 + '}';
+    }
+
+    public record Redelivery(
+            @Nullable String redeliveryQueueName,
+            int maxRedeliveryAttemptsBeforeKill,
+            double redeliveryDelayMultiplier,
+            int redeliveryDelay,
+            int maxRedeliveryDelay,
+            @Nullable KDLQDataConverter<?> messageKeyConverter,
+            @Nullable KDLQDataConverter<?> messageBodyConverter
+    ) implements KDLQConfiguration.Redelivery {
+
+        public Redelivery {
+            if (redeliveryDelay > 0 && (messageKeyConverter == null || messageBodyConverter == null)) {
+                throw new KDLQConfigurationException("Converters must be provided when redelivery delay is specified");
+            }
+        }
+
+        public static Builder builder() {
+            return new Builder();
+        }
+
+        public static class Builder {
+
+            private String redeliveryQueueName;
+            private int maxRedeliveryAttemptsBeforeKill = -1;
+            private double redeliveryDelayMultiplier;
+            private int redeliveryDelay;
+            private int maxRedeliveryDelay;
+            private KDLQDataConverter<?> messageKeyConverter;
+            private KDLQDataConverter<?> messageBodyConverter;
+
+            @Nonnull
+            public Builder withRedeliveryQueueName(@Nonnull String redeliveryQueueName) {
+                this.redeliveryQueueName = redeliveryQueueName;
+                return this;
+            }
+
+            @Nonnull
+            public Builder withMaxRedeliveryAttemptsBeforeKill(int maxRedeliveryAttemptsBeforeKill) {
+                this.maxRedeliveryAttemptsBeforeKill = maxRedeliveryAttemptsBeforeKill;
+                return this;
+            }
+
+            @Nonnull
+            public Builder withRedeliveryDelayMultiplier(double redeliveryDelayMultiplier) {
+                this.redeliveryDelayMultiplier = redeliveryDelayMultiplier;
+                return this;
+            }
+
+            @Nonnull
+            public Builder withRedeliveryDelay(int redeliveryDelay) {
+                this.redeliveryDelay = redeliveryDelay;
+                return this;
+            }
+
+            @Nonnull
+            public Builder withMaxRedeliveryDelay(int maxRedeliveryDelay) {
+                this.maxRedeliveryDelay = maxRedeliveryDelay;
+                return this;
+            }
+
+            @Nonnull
+            public Builder withMessageKeyConverter(@Nullable KDLQDataConverter<?> messageKeyConverter) {
+                this.messageKeyConverter = messageKeyConverter;
+                return this;
+            }
+
+            @Nonnull
+            public Builder withMessageBodyConverter(@Nullable KDLQDataConverter<?> messageBodyConverter) {
+                this.messageBodyConverter = messageBodyConverter;
+                return this;
+            }
+
+            public KDLQConfiguration.Redelivery build() {
+                return new Redelivery(
+                        this.redeliveryQueueName,
+                        this.maxRedeliveryAttemptsBeforeKill,
+                        this.redeliveryDelayMultiplier,
+                        this.redeliveryDelay,
+                        this.maxRedeliveryDelay,
+                        this.messageKeyConverter,
+                        this.messageBodyConverter
+                );
+            }
+        }
+    }
+
+    public record DLQ(
+            @Nonnull String deadLetterQueueName,
+            int maxKills
+    ) implements KDLQConfiguration.DLQ {
+
+        public DLQ {
+            Args.requireNotEmpty(deadLetterQueueName, () -> new KDLQConfigurationException("DLQ name must be not empty"));
+        }
+
+        public static Builder builder() {
+            return new Builder();
+        }
+
+        public static class Builder {
+
+            private int maxKills = -1;
+
+            @Nonnull
+            public Builder withMaxKills(int maxKills) {
+                this.maxKills = maxKills;
+                return this;
+            }
+
+            public KDLQConfiguration.DLQ build(@Nonnull String deadLetterQueueName) {
+                return new DLQ(deadLetterQueueName, this.maxKills);
+            }
+        }
     }
 
     @Nonnull
@@ -147,16 +232,9 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
 
         private final Set<KDLQMessageLifecycleListener> lifecycleListeners = new HashSet<>();
         private final Map<String, Object> producerProperties = new HashMap<>();
-        private String redeliveryQueueName;
-        private int maxKills = -1;
-        private int maxRedeliveryAttemptsBeforeKill = -1;
         private boolean addOptionalInformationalHeaders;
-
-        @Nonnull
-        public Builder withRedeliveryQueueName(@Nonnull String redeliveryQueueName) {
-            this.redeliveryQueueName = redeliveryQueueName;
-            return this;
-        }
+        private KDLQConfiguration.DLQ dlq;
+        private KDLQConfiguration.Redelivery redelivery;
 
         @Nonnull
         public Builder withLifecycleListener(@Nonnull KDLQMessageLifecycleListener listener) {
@@ -171,18 +249,6 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
         }
 
         @Nonnull
-        public Builder withMaxKills(int maxKills) {
-            this.maxKills = maxKills;
-            return this;
-        }
-
-        @Nonnull
-        public Builder withMaxRedeliveryAttemptsBeforeKill(int maxRedeliveryAttemptsBeforeKill) {
-            this.maxRedeliveryAttemptsBeforeKill = maxRedeliveryAttemptsBeforeKill;
-            return this;
-        }
-
-        @Nonnull
         public Builder withProducerProperties(@Nonnull Map<String, Object> producerProperties) {
             this.producerProperties.putAll(Objects.requireNonNull(producerProperties, "producerProperties"));
             return this;
@@ -193,15 +259,22 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
             return this;
         }
 
+        public Builder withRedelivery(KDLQConfiguration.Redelivery redelivery) {
+            this.redelivery = redelivery;
+            return this;
+        }
+
         @Nonnull
-        public KDLQConfiguration build(@Nonnull Set<String> bootstrapServers, @Nonnull String deadLetterQueueName) {
+        public KDLQConfiguration build(@Nonnull Set<String> bootstrapServers, @Nonnull DLQ dlq) {
+            final var redelivery =
+                    this.redelivery == null
+                            ? Redelivery.builder().build()
+                            : this.redelivery;
             return new ImmutableKDLQConfiguration(
                     bootstrapServers,
-                    deadLetterQueueName,
-                    this.redeliveryQueueName,
                     this.producerProperties,
-                    this.maxKills,
-                    this.maxRedeliveryAttemptsBeforeKill,
+                    dlq,
+                    redelivery,
                     this.lifecycleListeners,
                     this.addOptionalInformationalHeaders
             );

@@ -5,6 +5,7 @@ import ru.joke.kdlq.KDLQGlobalConfiguration;
 import ru.joke.kdlq.internal.configs.KDLQConfigurationRegistry;
 import ru.joke.kdlq.internal.routers.KDLQMessageSender;
 import ru.joke.kdlq.internal.routers.KDLQMessageSenderFactory;
+import ru.joke.kdlq.spi.KDLQProducerRecord;
 
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -53,10 +54,28 @@ public final class RedeliveryTask implements Runnable {
                         Collectors.toMap(KDLQConfiguration::id, this.senderFactory::create));
 
         globalConfiguration.redeliveryStorage().findAllReadyToRedelivery(cfgId -> this.configurationRegistry.get(cfgId).orElse(null), System.currentTimeMillis()).forEach(record -> {
-            @SuppressWarnings("rawtypes")
-            final KDLQMessageSender sender = sendersMap.get(record.configuration().id());
-            sender.send(record.record());
-            globalConfiguration.redeliveryStorage().deleteById(record.id());
+            redeliver(sendersMap, record);
         });
+    }
+
+    @SuppressWarnings("unchecked")
+    private void redeliver(
+            final Map<String, KDLQMessageSender<?, ?>> senders,
+            final KDLQProducerRecord<?, ?> record
+    ) {
+        @SuppressWarnings("rawtypes")
+        final KDLQMessageSender sender = senders.get(record.configuration().id());
+        if (sender == null) {
+            return;
+        }
+
+        try {
+            sender.send(record.record());
+        } catch (Exception e) {
+            // TODO
+            return;
+        }
+
+        this.globalConfiguration.redeliveryStorage().deleteById(record.id());
     }
 }
