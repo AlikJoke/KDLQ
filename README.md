@@ -37,4 +37,4 @@ Optionally, depending on the configuration (```ru.joke.kdlq.KDLQConfiguration.ad
 3. Timestamp (```KDLQ_OrigTs```).
 
 ## Examples of usage
-For examples of library usage, see the Java-doc for ```ru.joke.kdlq.impl.ConfigurableKDLQMessageConsumer```, as well as in tests.
+For examples of library usage, see the Java-doc for ```ru.joke.kdlq.internal.consumers.ConfigurableKDLQMessageConsumer```, as well as in tests.

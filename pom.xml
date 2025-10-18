@@ -7,23 +7,46 @@
     <groupId>ru.joke.kdlq</groupId>
     <artifactId>kdlq</artifactId>
     <version>1.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
     <name>Kafka DLQ Module</name>
     <description>Kafka DLQ Module</description>
+    <modules>
+        <module>kdlq-core</module>
+        <module>kdlq-mongo</module>
+    </modules>
 
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <kafka.version>3.6.1</kafka.version>
         <slf4j.version>2.0.6</slf4j.version>
+        <kafka.version>3.9.1</kafka.version>
     </properties>
 
     <scm>
-        <url>https://github.com/AlikJoke/KafkaDLQ.git</url>
+        <url>https://github.com/AlikJoke/KafkaDLQ</url>
         <connection>scm:git:https://github.com/AlikJoke/KafkaDLQ.git</connection>
         <developerConnection>scm:git:https://github.com/AlikJoke/KafkaDLQ.git</developerConnection>
     </scm>
+
+    <inceptionYear>2024</inceptionYear>
+
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <id>Alik</id>
+            <name>Alik</name>
+            <email>typicaljprogrammer@gmail.com</email>
+        </developer>
+    </developers>
 
     <dependencies>
 
@@ -38,6 +61,8 @@
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>
             <version>3.0.2</version>
+            <scope>provided</scope>
+            <optional>true</optional>
         </dependency>
 
         <dependency>
@@ -61,13 +86,6 @@
             <scope>test</scope>
         </dependency>
 
-        <dependency>
-            <groupId>io.github.embeddedkafka</groupId>
-            <artifactId>embedded-kafka-streams_3</artifactId>
-            <version>${kafka.version}</version>
-            <scope>test</scope>
-        </dependency>
-
     </dependencies>
 
     <build>
@@ -76,19 +94,12 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
-                    <version>3.11.0</version>
+                    <version>3.14.1</version>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-jar-plugin</artifactId>
-                    <version>3.3.0</version>
-                    <executions>
-                        <execution>
-                            <goals>
-                                <goal>test-jar</goal>
-                            </goals>
-                        </execution>
-                    </executions>
+                    <version>3.4.2</version>
                     <configuration>
                         <archive>
                             <manifest>
@@ -102,10 +113,16 @@
                         </archive>
                     </configuration>
                 </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <version>3.8.1</version>
+                </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-install-plugin</artifactId>
-                    <version>3.1.1</version>
+                    <version>3.1.4</version>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
@@ -120,13 +137,10 @@
                             </goals>
                         </execution>
                     </executions>
-                    <configuration>
-                        <skipSource>true</skipSource>
-                    </configuration>
                 </plugin>
                 <plugin>
                     <artifactId>maven-clean-plugin</artifactId>
-                    <version>3.3.1</version>
+                    <version>3.5.0</version>
                     <configuration>
                         <excludeDefaultDirectories>true</excludeDefaultDirectories>
                         <filesets>
@@ -143,7 +157,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
-                    <version>3.1.2</version>
+                    <version>3.5.4</version>
                     <configuration>
                         <excludes>
                             <exclude>**/*IT.java</exclude>
@@ -182,12 +196,6 @@
                         </execution>
                     </executions>
                 </plugin>
-
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-resources-plugin</artifactId>
-                    <version>3.3.1</version>
-                </plugin>
             </plugins>
         </pluginManagement>
         <plugins>
@@ -211,11 +219,11 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
-                <version>3.5.0</version>
+                <version>3.12.0</version>
                 <inherited>true</inherited>
                 <configuration>
                     <overview>${project.basedir}/overview.html</overview>
-                    <failOnError>false</failOnError>
+                    <failOnError>true</failOnError>
                 </configuration>
                 <executions>
                     <execution>
