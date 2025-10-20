@@ -26,7 +26,7 @@ public interface KDLQMessageProcessor<K, V> {
      * {@link KDLQMessageMustBeRedeliveredException} then it is equivalent in action to returning the
      * {@link ProcessingStatus#MUST_BE_REDELIVERED} status.
      *
-     * @param message message to processing, can not be {@code null}.
+     * @param message message to processing; cannot be {@code null}.
      * @return status that determines further actions on the message, can not be {@code null}.
      * @see ProcessingStatus
      */

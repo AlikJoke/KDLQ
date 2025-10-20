@@ -3,17 +3,21 @@ package ru.joke.kdlq;
 import ru.joke.kdlq.internal.util.Args;
 import ru.joke.kdlq.spi.KDLQDataConverter;
 
+import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
+import javax.annotation.concurrent.NotThreadSafe;
 import javax.annotation.concurrent.ThreadSafe;
 import java.util.*;
 
 /**
- * Default immutable implementation of the KDLQ configuration {@link KDLQConfiguration}.
+ * Immutable implementation of the KDLQ configuration {@link KDLQConfiguration}.
+ * For more convenient construction of the configuration object, use the builder {@link #builder()}.
  *
  * @author Alik
  * @see KDLQConfiguration
+ * @see Builder
  */
 @ThreadSafe
 @Immutable
@@ -27,7 +31,8 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
     private final boolean addOptionalInformationalHeaders;
     private final String id;
 
-    public ImmutableKDLQConfiguration(
+    private ImmutableKDLQConfiguration(
+            @Nonnull String id,
             @Nonnull Set<String> bootstrapServers,
             @Nonnull Map<String, Object> producerProperties,
             @Nonnull KDLQConfiguration.DLQ dlq,
@@ -37,6 +42,9 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
     ) {
 
         Args.requireNotEmpty(bootstrapServers, () -> new KDLQConfigurationException("Bootstrap servers must be not empty"));
+        Args.requireNotNull(producerProperties, () -> new KDLQConfigurationException("Kafka producer properties must be not null"));
+        Args.requireNotEmpty(lifecycleListeners, () -> new KDLQConfigurationException("Lifecycle listeners must be not null"));
+        Args.requireNotEmpty(id, () -> new KDLQConfigurationException("Configuration id must be not empty"));
 
         this.bootstrapServers = Set.copyOf(bootstrapServers);
         this.dlq = Args.requireNotNull(dlq, () -> new KDLQConfigurationException("DLQ be not empty"));
@@ -44,16 +52,7 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
         this.producerProperties = Map.copyOf(producerProperties);
         this.lifecycleListeners = Set.copyOf(lifecycleListeners);
         this.addOptionalInformationalHeaders = addOptionalInformationalHeaders;
-        this.id = this.bootstrapServers.hashCode() + "_" + this.producerProperties.hashCode();
-    }
-
-    public ImmutableKDLQConfiguration(
-            @Nonnull Set<String> bootstrapServers,
-            @Nonnull Map<String, Object> producerProperties,
-            @Nonnull KDLQConfiguration.DLQ dlq,
-            @Nonnull KDLQConfiguration.Redelivery redelivery
-    ) {
-        this(bootstrapServers, producerProperties, dlq, redelivery, Collections.emptySet(), false);
+        this.id = id;
     }
 
     @Nonnull
@@ -99,7 +98,7 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
 
     @Override
     public String toString() {
-        return "DefaultKDLQConfiguration{"
+        return "KDLQConfiguration{"
                 + "id=" + id + '\''
                 + ", bootstrapServers=" + bootstrapServers
                 + ", dlq='" + dlq + '\''
@@ -108,78 +107,198 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
                 + '}';
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        final var that = (ImmutableKDLQConfiguration) o;
+        return id.equals(that.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return id.hashCode();
+    }
+
+    /**
+     * Implementation of the {@link ru.joke.kdlq.KDLQConfiguration.Redelivery} configuration.
+     *
+     * @param redeliveryQueueName             the queue (topic) to redelivery messages; if not set,
+     *                                        the original topic of the resent message will be used;
+     *                                        can be {@code null}.
+     * @param maxRedeliveryAttemptsBeforeKill the number of maximum attempts to deliver a message
+     *                                        to the processing queue; if the value is negative redelivery
+     *                                        will occur indefinitely until the message is processed
+     * @param redeliveryDelayMultiplier       the multiplier for the delayed redelivery interval for
+     *                                        subsequent redeliveries; cannot be {@code <= 0} if redelivery
+     *                                        delay interval is set.
+     * @param redeliveryDelay                 the initial delayed message redelivery interval in milliseconds;
+     *                                        if the value is {@code 0}, redelivery will occur immediately.
+     * @param maxRedeliveryDelay              the maximum delayed redelivery interval in milliseconds;
+     *                                        cannot be {@code < 0}.
+     * @param messageKeyConverter             Kafka message key converter for storing messages awaiting redelivery;
+     *                                        can be {@code null} if redelivery storage is not used (redelivery
+     *                                        delay must be {@code 0}).
+     * @param messageBodyConverter            Kafka message body converter for storing messages awaiting redelivery;
+     *                                        can be {@code null} if redelivery storage is not used (redelivery
+     *                                        delay must be {@code 0}).
+     */
+    @Immutable
+    @ThreadSafe
     public record Redelivery(
             @Nullable String redeliveryQueueName,
             int maxRedeliveryAttemptsBeforeKill,
             double redeliveryDelayMultiplier,
-            int redeliveryDelay,
-            int maxRedeliveryDelay,
+            @Nonnegative int redeliveryDelay,
+            @Nonnegative int maxRedeliveryDelay,
             @Nullable KDLQDataConverter<?> messageKeyConverter,
             @Nullable KDLQDataConverter<?> messageBodyConverter
     ) implements KDLQConfiguration.Redelivery {
 
         public Redelivery {
+            Args.requireNonNegative(redeliveryDelay, () -> new KDLQConfigurationException("Redelivery delay must be non negative"));
+            Args.requireNonNegative(maxRedeliveryDelay, () -> new KDLQConfigurationException("Max redelivery delay must be non negative"));
             if (redeliveryDelay > 0 && (messageKeyConverter == null || messageBodyConverter == null)) {
                 throw new KDLQConfigurationException("Converters must be provided when redelivery delay is specified");
             }
+
+            if (redeliveryDelayMultiplier <= 0) {
+                throw new KDLQConfigurationException("Redelivery delay multiplier must be positive");
+            }
         }
 
+        /**
+         * Returns a builder instance for more convenient construction of the redelivery object.
+         *
+         * @return builder instance; cannot be {@code null}.
+         * @see ImmutableKDLQConfiguration.Redelivery.Builder
+         */
+        @Nonnull
         public static Builder builder() {
             return new Builder();
         }
 
+        /**
+         * Builder for the {@link ru.joke.kdlq.KDLQConfiguration.Redelivery} configuration object.<br>
+         * This class is not thread-safe.
+         */
+        @NotThreadSafe
         public static class Builder {
 
             private String redeliveryQueueName;
-            private int maxRedeliveryAttemptsBeforeKill = -1;
-            private double redeliveryDelayMultiplier;
+            private int maxRedeliveryAttemptsBeforeKill = 5;
+            private double redeliveryDelayMultiplier = 1.5;
             private int redeliveryDelay;
             private int maxRedeliveryDelay;
             private KDLQDataConverter<?> messageKeyConverter;
             private KDLQDataConverter<?> messageBodyConverter;
 
+            /**
+             * Sets the queue (topic) to redelivery messages
+             *
+             * @param redeliveryQueueName redelivery queue name; can be {@code null}.
+             * @return the current builder object for further construction; cannot be {@code null}.
+             * @see KDLQConfiguration.Redelivery#redeliveryQueueName()
+             */
             @Nonnull
             public Builder withRedeliveryQueueName(@Nonnull String redeliveryQueueName) {
                 this.redeliveryQueueName = redeliveryQueueName;
                 return this;
             }
 
+            /**
+             * Sets the number of maximum attempts to deliver a message to the processing queue.<br>
+             * Default value is {@code 5}.
+             *
+             * @param maxRedeliveryAttemptsBeforeKill the number of maximum attempts to deliver a message.
+             * @return the current builder object for further construction; cannot be {@code null}.
+             * @see KDLQConfiguration.Redelivery#maxRedeliveryAttemptsBeforeKill()
+             */
             @Nonnull
             public Builder withMaxRedeliveryAttemptsBeforeKill(int maxRedeliveryAttemptsBeforeKill) {
                 this.maxRedeliveryAttemptsBeforeKill = maxRedeliveryAttemptsBeforeKill;
                 return this;
             }
 
+            /**
+             * Sets the multiplier for the delayed redelivery interval for subsequent redeliveries.<br>
+             * Default value is {@code 1.5}.
+             *
+             * @param redeliveryDelayMultiplier the multiplier for the delayed redelivery interval
+             *                                  for subsequent redeliveries; cannot be {@code  <= 0}.
+             * @return the current builder object for further construction; cannot be {@code null}.
+             * @see KDLQConfiguration.Redelivery#redeliveryDelayMultiplier()
+             */
             @Nonnull
             public Builder withRedeliveryDelayMultiplier(double redeliveryDelayMultiplier) {
                 this.redeliveryDelayMultiplier = redeliveryDelayMultiplier;
                 return this;
             }
 
+            /**
+             * Sets the initial delayed message redelivery interval in milliseconds.
+             *
+             * @param redeliveryDelay the initial delayed message redelivery interval; cannot be negative.
+             * @return the current builder object for further construction; cannot be {@code null}.
+             * @see KDLQConfiguration.Redelivery#redeliveryDelay()
+             */
             @Nonnull
-            public Builder withRedeliveryDelay(int redeliveryDelay) {
+            public Builder withRedeliveryDelay(@Nonnegative int redeliveryDelay) {
                 this.redeliveryDelay = redeliveryDelay;
                 return this;
             }
 
+            /**
+             * Sets the maximum delayed redelivery interval in milliseconds.
+             *
+             * @param maxRedeliveryDelay the maximum delayed redelivery interval in milliseconds; cannot be negative.
+             * @return the current builder object for further construction; cannot be {@code null}.
+             * @see KDLQConfiguration.Redelivery#maxRedeliveryDelay()
+             */
             @Nonnull
-            public Builder withMaxRedeliveryDelay(int maxRedeliveryDelay) {
+            public Builder withMaxRedeliveryDelay(@Nonnegative int maxRedeliveryDelay) {
                 this.maxRedeliveryDelay = maxRedeliveryDelay;
                 return this;
             }
 
+            /**
+             * Sets Kafka message key converter for storing messages awaiting redelivery.
+             *
+             * @param messageKeyConverter message key converter; can be {@code null} if {@code redeliveryDelay() == 0}.
+             * @return the current builder object for further construction; cannot be {@code null}.
+             * @see KDLQConfiguration.Redelivery#messageKeyConverter()
+             */
             @Nonnull
             public Builder withMessageKeyConverter(@Nullable KDLQDataConverter<?> messageKeyConverter) {
                 this.messageKeyConverter = messageKeyConverter;
                 return this;
             }
 
+            /**
+             * Sets Kafka message body converter for storing messages awaiting redelivery.
+             *
+             * @param messageBodyConverter message body converter; can be {@code null} if {@code redeliveryDelay() == 0}.
+             * @return the current builder object for further construction; cannot be {@code null}.
+             * @see KDLQConfiguration.Redelivery#messageKeyConverter()
+             */
             @Nonnull
             public Builder withMessageBodyConverter(@Nullable KDLQDataConverter<?> messageBodyConverter) {
                 this.messageBodyConverter = messageBodyConverter;
                 return this;
             }
 
+            /**
+             * Creates a redelivery configuration object with the specified parameters.<br>
+             *
+             * @return created redelivery configuration object; cannot be {@code null}.
+             * @see KDLQConfiguration.Redelivery
+             */
+            @Nonnull
             public KDLQConfiguration.Redelivery build() {
                 return new Redelivery(
                         this.redeliveryQueueName,
@@ -194,6 +313,13 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
         }
     }
 
+    /**
+     * Implementation of the {@link ru.joke.kdlq.KDLQConfiguration.DLQ} configuration.
+     * @param deadLetterQueueName dead letter queue name; cannot be {@code null}.
+     * @param maxKills            the number of maximum attempts to resend messages from DLQ
+     *                            to DLQ in case of repeated processing errors before the
+     *                            message is considered “dead” and is ignored.
+     */
     public record DLQ(
             @Nonnull String deadLetterQueueName,
             int maxKills
@@ -203,74 +329,189 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
             Args.requireNotEmpty(deadLetterQueueName, () -> new KDLQConfigurationException("DLQ name must be not empty"));
         }
 
+        /**
+         * Returns a builder instance for more convenient construction of the DLQ object.
+         *
+         * @return builder instance; cannot be {@code null}.
+         * @see ImmutableKDLQConfiguration.DLQ.Builder
+         */
+        @Nonnull
         public static Builder builder() {
             return new Builder();
         }
 
+        /**
+         * Builder for the {@link ru.joke.kdlq.KDLQConfiguration.DLQ} configuration object.<br>
+         * This class is not thread-safe.
+         */
+        @NotThreadSafe
         public static class Builder {
 
             private int maxKills = -1;
 
+            /**
+             * Sets the number of maximum attempts to resend messages from DLQ to DLQ in case
+             * of repeated processing errors before the message is considered “dead” and is ignored.<br>
+             * Default value is {@code -1}.
+             *
+             * @param maxKills the number of maximum attempts to resend messages from DLQ to DLQ;
+             *                 if the value is negative, the message is always re-sent back
+             *                 to the DLQ in case of errors.
+             * @return the current builder object for further construction; cannot be {@code null}.
+             * @see KDLQConfiguration.DLQ#maxKills()
+             */
             @Nonnull
             public Builder withMaxKills(int maxKills) {
                 this.maxKills = maxKills;
                 return this;
             }
 
+            /**
+             * Creates a DLQ configuration object with the specified parameters.<br>
+             *
+             * @param deadLetterQueueName name of the dead letter queue; cannot be {@code null} or empty.
+             * @return created DLQ configuration object; cannot be {@code null}.
+             * @see KDLQConfiguration.DLQ
+             * @see KDLQConfiguration.DLQ#deadLetterQueueName()
+             */
+            @Nonnull
             public KDLQConfiguration.DLQ build(@Nonnull String deadLetterQueueName) {
                 return new DLQ(deadLetterQueueName, this.maxKills);
             }
         }
     }
 
+    /**
+     * Returns a builder instance for more convenient construction of the {@link KDLQConfiguration} object.
+     *
+     * @return builder instance; cannot be {@code null}.
+     * @see ImmutableKDLQConfiguration.Builder
+     */
     @Nonnull
     public static Builder builder() {
         return new Builder();
     }
 
+    /**
+     * Builder for the {@link ru.joke.kdlq.KDLQConfiguration} configuration object.<br>
+     * This class is not thread-safe.
+     */
+    @NotThreadSafe
     public static class Builder {
 
+        private String id;
         private final Set<KDLQMessageLifecycleListener> lifecycleListeners = new HashSet<>();
         private final Map<String, Object> producerProperties = new HashMap<>();
         private boolean addOptionalInformationalHeaders;
         private KDLQConfiguration.DLQ dlq;
         private KDLQConfiguration.Redelivery redelivery;
 
+        /**
+         * Sets the unique id of the configuration.<br>
+         * Default value is {@code java.util.UUID.randomUUID().toString()}.<br>
+         * <b>If delayed redelivery is used, the identifier must be "persistent" and
+         * preserved across system reboots. Otherwise, messages stored in the repository
+         * cannot be re-sent if the configuration under which the message was originally
+         * saved for redelivery is not found.</b>
+         *
+         * @param id id of the configuration; if {@code null} the default value will be applied.
+         * @return the current builder object for further construction; cannot be {@code null}.
+         * @see KDLQConfiguration#id()
+         */
+        @Nonnull
+        public Builder withId(final String id) {
+            this.id = id;
+            return this;
+        }
+
+        /**
+         * Sets the message lifecycle listener.
+         *
+         * @param listener the message lifecycle listener; cannot be {@code null}.
+         * @return the current builder object for further construction; cannot be {@code null}.
+         * @see KDLQConfiguration#lifecycleListeners()
+         * @see KDLQMessageLifecycleListener
+         */
         @Nonnull
         public Builder withLifecycleListener(@Nonnull KDLQMessageLifecycleListener listener) {
             this.lifecycleListeners.add(Objects.requireNonNull(listener, "listener"));
             return this;
         }
 
+        /**
+         * Sets the message lifecycle listeners.
+         *
+         * @param listeners the message lifecycle listeners; cannot be {@code null}.
+         * @return the current builder object for further construction; cannot be {@code null}.
+         * @see KDLQConfiguration#lifecycleListeners()
+         * @see KDLQMessageLifecycleListener
+         */
         @Nonnull
         public Builder withLifecycleListeners(@Nonnull Set<KDLQMessageLifecycleListener> listeners) {
             this.lifecycleListeners.addAll(Objects.requireNonNull(listeners, "listeners"));
             return this;
         }
 
+        /**
+         * Sets the additional properties of the Kafka producer.
+         *
+         * @param producerProperties properties of the Kafka producer; cannot be {@code null}.
+         * @return the current builder object for further construction; cannot be {@code null}.
+         * @see KDLQConfiguration#producerProperties()
+         */
         @Nonnull
         public Builder withProducerProperties(@Nonnull Map<String, Object> producerProperties) {
             this.producerProperties.putAll(Objects.requireNonNull(producerProperties, "producerProperties"));
             return this;
         }
 
+        /**
+         * Sets the flag whether optional information headers should be added to the message.
+         *
+         * @param addInformationalHeaders whether optional information headers should be added to the message.
+         * @return the current builder object for further construction; cannot be {@code null}.
+         * @see KDLQConfiguration#addOptionalInformationalHeaders()
+         */
         public Builder addInformationalHeaders(boolean addInformationalHeaders) {
             this.addOptionalInformationalHeaders = addInformationalHeaders;
             return this;
         }
 
-        public Builder withRedelivery(KDLQConfiguration.Redelivery redelivery) {
+        /**
+         * Sets the redelivery configuration
+         *
+         * @param redelivery redelivery configuration; can be {@code null}.
+         * @return the current builder object for further construction; cannot be {@code null}.
+         * @see KDLQConfiguration#redelivery()
+         */
+        public Builder withRedelivery(@Nullable KDLQConfiguration.Redelivery redelivery) {
             this.redelivery = redelivery;
             return this;
         }
 
+        /**
+         * Creates a configuration object with the specified parameters.<br>
+         * Mandatory parameters are passed as arguments to this method; others are optional,
+         * and if not explicitly set in the builder, default values will be used.
+         *
+         * @param bootstrapServers bootstraps servers; cannot be {@code null} or empty.
+         * @param dlq              dlq configuration; cannot be {@code null}.
+         * @return created configuration object; cannot be {@code null}.
+         * @see KDLQConfiguration#dlq()
+         * @see KDLQConfiguration#bootstrapServers()
+         */
         @Nonnull
-        public KDLQConfiguration build(@Nonnull Set<String> bootstrapServers, @Nonnull DLQ dlq) {
+        public KDLQConfiguration build(
+                @Nonnull final Set<String> bootstrapServers,
+                @Nonnull final DLQ dlq
+        ) {
             final var redelivery =
                     this.redelivery == null
                             ? Redelivery.builder().build()
                             : this.redelivery;
+            final var id = this.id == null ? UUID.randomUUID().toString() : this.id;
             return new ImmutableKDLQConfiguration(
+                    id,
                     bootstrapServers,
                     this.producerProperties,
                     dlq,

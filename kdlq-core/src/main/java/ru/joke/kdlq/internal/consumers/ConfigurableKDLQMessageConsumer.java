@@ -11,6 +11,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.Objects;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Consumer;
 
 /**
  * Default thread-safe implementation of the {@link KDLQMessageConsumer} that allows message
@@ -52,7 +53,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * @see KDLQConfiguration
  */
 @ThreadSafe
-final class ConfigurableKDLQMessageConsumer<K, V> implements KDLQMessageConsumer<K, V>, AutoCloseable {
+final class ConfigurableKDLQMessageConsumer<K, V> implements KDLQMessageConsumer<K, V> {
 
     private static final Logger logger = LoggerFactory.getLogger(ConfigurableKDLQMessageConsumer.class);
 
@@ -61,6 +62,7 @@ final class ConfigurableKDLQMessageConsumer<K, V> implements KDLQMessageConsumer
     private final KDLQConfiguration dlqConfiguration;
     private final KDLQMessageProcessor<K, V> messageProcessor;
     private final ReadWriteLock lock;
+    private final Consumer<KDLQMessageConsumer<?, ?>> onCloseCallback;
 
     private volatile boolean isClosed;
 
@@ -68,13 +70,15 @@ final class ConfigurableKDLQMessageConsumer<K, V> implements KDLQMessageConsumer
             @Nonnull String id,
             @Nonnull KDLQConfiguration dlqConfiguration,
             @Nonnull KDLQMessageProcessor<K, V> messageProcessor,
-            @Nonnull KDLQMessageRouter<K, V> messageSender
+            @Nonnull KDLQMessageRouter<K, V> messageSender,
+            @Nonnull Consumer<KDLQMessageConsumer<?, ?>> onCloseCallback
     ) {
         this.id = Objects.requireNonNull(id, "id");
         this.dlqConfiguration = Objects.requireNonNull(dlqConfiguration, "dlqConfiguration");
         this.messageProcessor = Objects.requireNonNull(messageProcessor, "messageProcessor");
         this.lock = new ReentrantReadWriteLock();
         this.messageSender = Objects.requireNonNull(messageSender, "messageSender");
+        this.onCloseCallback = Objects.requireNonNull(onCloseCallback, "onCloseCallback");
     }
 
     @Override
@@ -93,10 +97,16 @@ final class ConfigurableKDLQMessageConsumer<K, V> implements KDLQMessageConsumer
         }
     }
 
+    @Nonnull
+    @Override
+    public String id() {
+        return this.id;
+    }
+
     @Override
     public synchronized void close() {
         if (this.isClosed) {
-            throw new KDLQLifecycleException("Consumer already closed");
+            return;
         }
 
         final var closingLock = this.lock.writeLock();
@@ -111,7 +121,17 @@ final class ConfigurableKDLQMessageConsumer<K, V> implements KDLQMessageConsumer
             closingLock.unlock();
         }
 
+        this.onCloseCallback.accept(this);
+
         logger.info("KDLQ consumer was closed: {}", this.id);
+    }
+
+    @Override
+    public String toString() {
+        return "KDLQMessageConsumer{"
+                + "id='" + id + '\''
+                + ", dlqConfiguration=" + dlqConfiguration
+                + '}';
     }
 
     private Status handle(final ConsumerRecord<K, V> message) {

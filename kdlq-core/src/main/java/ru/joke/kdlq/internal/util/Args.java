@@ -27,6 +27,28 @@ public abstract class Args {
         return value;
     }
 
+    public static int requirePositive(
+            final int value,
+            final Supplier<RuntimeException> exceptionSupplier
+    ) {
+        if (value <= 0) {
+            throw exceptionSupplier.get();
+        }
+
+        return value;
+    }
+
+    public static int requireNonNegative(
+            final int value,
+            final Supplier<RuntimeException> exceptionSupplier
+    ) {
+        if (value < 0) {
+            throw exceptionSupplier.get();
+        }
+
+        return value;
+    }
+
     public static <T> Collection<T> requireNotEmpty(
             final Collection<T> value,
             final Supplier<RuntimeException> exceptionSupplier

@@ -85,11 +85,9 @@ public final class KDLQMongoGlobalConfigurationBuilder {
         final var redeliveryStorage = new KDLQRedeliveryMongoStorage(redeliveryCollection);
 
         return ImmutableKDLQGlobalConfiguration.builder()
-                                                    .withDistributedLockService(distributedLockService)
-                                                    .withRedeliveryStorage(redeliveryStorage)
                                                     .withRedeliveryTaskDelay(this.redeliveryTaskDelay)
                                                     .withRedeliveryPool(redeliveryPool)
-                                               .build();
+                                               .build(distributedLockService, redeliveryStorage);
     }
 
     public static KDLQMongoGlobalConfigurationBuilder create() {

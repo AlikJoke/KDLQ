@@ -6,18 +6,22 @@ import ru.joke.kdlq.internal.routers.KDLQMessageRouter;
 import ru.joke.kdlq.internal.routers.KDLQMessageRouterFactory;
 
 import javax.annotation.Nonnull;
+import java.util.function.Consumer;
 
 public final class DefaultKDLQMessageConsumerFactory implements KDLQMessageConsumerFactory {
 
     private final KDLQConfigurationRegistry configsRegistry;
     private final KDLQMessageRouterFactory messageRouterFactory;
+    private final Consumer<KDLQMessageConsumer<?, ?>> onCloseCallback;
 
     public DefaultKDLQMessageConsumerFactory(
             final KDLQConfigurationRegistry registry,
-            final KDLQMessageRouterFactory messageRouterFactory
+            final KDLQMessageRouterFactory messageRouterFactory,
+            final Consumer<KDLQMessageConsumer<?, ?>> onCloseCallback
     ) {
         this.configsRegistry = registry;
         this.messageRouterFactory = messageRouterFactory;
+        this.onCloseCallback = onCloseCallback;
     }
 
     @Override
@@ -31,7 +35,8 @@ public final class DefaultKDLQMessageConsumerFactory implements KDLQMessageConsu
                 id,
                 dlqConfiguration,
                 messageProcessor,
-                router
+                router,
+                this.onCloseCallback
         );
     }
 

@@ -1,7 +1,5 @@
 package ru.joke.kdlq;
 
-import javax.annotation.Nonnull;
-
 /**
  * Base exception for all types of exceptions that can be thrown by KDLQ.
  *
@@ -9,11 +7,21 @@ import javax.annotation.Nonnull;
  */
 public class KDLQException extends RuntimeException {
 
-    public KDLQException(@Nonnull String message) {
+    /**
+     * Constructs a new exception with {@code null} as its cause and provided detail message.
+     *
+     * @param message detail message; can be {@code null}.
+     */
+    public KDLQException(final String message) {
         super(message);
     }
 
-    public KDLQException(@Nonnull Exception cause) {
+    /**
+     * Constructs a new exception with cause and {@code null} as its detail message.
+     *
+     * @param cause the cause; can be {@code null}.
+     */
+    public KDLQException(final Exception cause) {
         super(cause);
     }
 }

@@ -6,14 +6,18 @@ import ru.joke.kdlq.KDLQGlobalConfigurationFactory;
 import ru.joke.kdlq.spi.KDLQGlobalDistributedLockService;
 import ru.joke.kdlq.spi.KDLQRedeliveryStorage;
 
+import javax.annotation.Nonnegative;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.concurrent.ScheduledExecutorService;
 
 public class DefaultKDLQGlobalConfigurationFactory implements KDLQGlobalConfigurationFactory {
 
     @Override
+    @Nonnull
     public KDLQGlobalConfiguration createStatelessStandaloneConfiguration(
-            ScheduledExecutorService redeliveryPool,
-            long redeliveryTaskDelay
+            @Nullable final ScheduledExecutorService redeliveryPool,
+            @Nonnegative long redeliveryTaskDelay
     ) {
         return createStandaloneConfiguration(
                 redeliveryPool,
@@ -23,7 +27,8 @@ public class DefaultKDLQGlobalConfigurationFactory implements KDLQGlobalConfigur
     }
 
     @Override
-    public KDLQGlobalConfiguration createStatelessStandaloneConfiguration(long redeliveryTaskDelay) {
+    @Nonnull
+    public KDLQGlobalConfiguration createStatelessStandaloneConfiguration(@Nonnegative long redeliveryTaskDelay) {
         return createStatelessStandaloneConfiguration(
                 null,
                 redeliveryTaskDelay
@@ -31,12 +36,13 @@ public class DefaultKDLQGlobalConfigurationFactory implements KDLQGlobalConfigur
     }
 
     @Override
+    @Nonnull
     public KDLQGlobalConfiguration createStandaloneConfiguration(
-            ScheduledExecutorService redeliveryPool,
-            long redeliveryTaskDelay,
-            KDLQRedeliveryStorage redeliveryStorage
+            @Nullable final ScheduledExecutorService redeliveryPool,
+            @Nonnegative final long redeliveryTaskDelay,
+            @Nonnull final KDLQRedeliveryStorage redeliveryStorage
     ) {
-        return createConfiguration(
+        return createCustomConfiguration(
                 redeliveryPool,
                 redeliveryTaskDelay,
                 new StandaloneKDLQGlobalDistributedLockService(),
@@ -45,9 +51,10 @@ public class DefaultKDLQGlobalConfigurationFactory implements KDLQGlobalConfigur
     }
 
     @Override
+    @Nonnull
     public KDLQGlobalConfiguration createStandaloneConfiguration(
-            long redeliveryTaskDelay,
-            KDLQRedeliveryStorage redeliveryStorage
+            @Nonnegative final long redeliveryTaskDelay,
+            @Nonnull final KDLQRedeliveryStorage redeliveryStorage
     ) {
         return createStandaloneConfiguration(
                 null,
@@ -57,35 +64,33 @@ public class DefaultKDLQGlobalConfigurationFactory implements KDLQGlobalConfigur
     }
 
     @Override
-    public KDLQGlobalConfiguration createConfiguration(
-            ScheduledExecutorService redeliveryPool,
-            long redeliveryTaskDelay,
-            KDLQGlobalDistributedLockService lockService,
-            KDLQRedeliveryStorage redeliveryStorage
+    @Nonnull
+    public KDLQGlobalConfiguration createCustomConfiguration(
+            @Nullable final ScheduledExecutorService redeliveryPool,
+            @Nonnegative final long redeliveryTaskDelay,
+            @Nonnull final KDLQGlobalDistributedLockService lockService,
+            @Nonnull final KDLQRedeliveryStorage redeliveryStorage
     ) {
         final var builder = ImmutableKDLQGlobalConfiguration.builder();
 
         return builder
                     .withRedeliveryPool(redeliveryPool)
-                    .withRedeliveryStorage(redeliveryStorage)
                     .withRedeliveryTaskDelay(redeliveryTaskDelay)
-                    .withDistributedLockService(lockService)
-                .build();
+                .build(lockService, redeliveryStorage);
     }
 
     @Override
-    public KDLQGlobalConfiguration createConfiguration(
+    @Nonnull
+    public KDLQGlobalConfiguration createCustomConfiguration(
             long redeliveryTaskDelay,
-            KDLQGlobalDistributedLockService lockService,
-            KDLQRedeliveryStorage redeliveryStorage
+            @Nonnull KDLQGlobalDistributedLockService lockService,
+            @Nonnull KDLQRedeliveryStorage redeliveryStorage
     ) {
         final var builder = ImmutableKDLQGlobalConfiguration.builder();
 
         return builder
-                    .withRedeliveryStorage(redeliveryStorage)
                     .withRedeliveryTaskDelay(redeliveryTaskDelay)
-                    .withDistributedLockService(lockService)
-                .build();
+                .build(lockService, redeliveryStorage);
     }
 
 }

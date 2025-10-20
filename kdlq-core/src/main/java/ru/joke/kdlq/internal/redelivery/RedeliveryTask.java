@@ -1,5 +1,7 @@
 package ru.joke.kdlq.internal.redelivery;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.joke.kdlq.KDLQConfiguration;
 import ru.joke.kdlq.KDLQGlobalConfiguration;
 import ru.joke.kdlq.internal.configs.KDLQConfigurationRegistry;
@@ -7,11 +9,15 @@ import ru.joke.kdlq.internal.routers.KDLQMessageSender;
 import ru.joke.kdlq.internal.routers.KDLQMessageSenderFactory;
 import ru.joke.kdlq.spi.KDLQProducerRecord;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public final class RedeliveryTask implements Runnable {
+
+    private static final Logger logger = LoggerFactory.getLogger(RedeliveryTask.class);
 
     private final KDLQGlobalConfiguration globalConfiguration;
     private final KDLQConfigurationRegistry configurationRegistry;
@@ -51,11 +57,10 @@ public final class RedeliveryTask implements Runnable {
     private void redeliver() {
         final Map<String, KDLQMessageSender<?, ?>> sendersMap =
                 this.configurationRegistry.getAll().stream().collect(
-                        Collectors.toMap(KDLQConfiguration::id, this.senderFactory::create));
+                        Collectors.toMap(KDLQConfiguration::producerId, this.senderFactory::create));
 
-        globalConfiguration.redeliveryStorage().findAllReadyToRedelivery(cfgId -> this.configurationRegistry.get(cfgId).orElse(null), System.currentTimeMillis()).forEach(record -> {
-            redeliver(sendersMap, record);
-        });
+        globalConfiguration.redeliveryStorage().findAllReadyToRedelivery(cfgId -> this.configurationRegistry.get(cfgId).orElse(null), System.currentTimeMillis())
+                .forEach(record -> redeliver(sendersMap, record));
     }
 
     @SuppressWarnings("unchecked")
@@ -64,18 +69,23 @@ public final class RedeliveryTask implements Runnable {
             final KDLQProducerRecord<?, ?> record
     ) {
         @SuppressWarnings("rawtypes")
-        final KDLQMessageSender sender = senders.get(record.configuration().id());
+        final KDLQMessageSender sender = senders.get(record.configuration().producerId());
         if (sender == null) {
             return;
         }
 
+        final var lifecycleListeners = record.configuration().lifecycleListeners();
+        final var sourceProcessorId = new String(record.record().headers().lastHeader("KDLQ_PrcMarker").value(), StandardCharsets.UTF_8);
         try {
             sender.send(record.record());
-        } catch (Exception e) {
-            // TODO
+        } catch (Exception ex) {
+            logger.error("Unable to redeliver stored message: " + record.id(), ex);
+            lifecycleListeners.forEach(l -> l.onMessageRedeliveryError(sourceProcessorId, Optional.empty(), record.record(), ex));
+
             return;
         }
 
+        lifecycleListeners.forEach(l -> l.onMessageRedeliverySuccess(sourceProcessorId, Optional.empty(), record.record()));
         this.globalConfiguration.redeliveryStorage().deleteById(record.id());
     }
 }

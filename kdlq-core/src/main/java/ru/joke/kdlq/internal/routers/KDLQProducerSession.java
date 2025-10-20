@@ -34,7 +34,7 @@ final class KDLQProducerSession<K, V> {
     }
 
     KDLQProducerSession(@Nonnull final KDLQConfiguration configuration) {
-        this(configuration.id(), new KafkaProducer<>(composePropertiesMap(configuration)));
+        this(configuration.producerId(), new KafkaProducer<>(composePropertiesMap(configuration)));
     }
 
     private static Map<String, Object> composePropertiesMap(final KDLQConfiguration configuration) {

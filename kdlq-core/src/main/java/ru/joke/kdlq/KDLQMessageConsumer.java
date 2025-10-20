@@ -14,20 +14,36 @@ import javax.annotation.Nonnull;
  * @see KDLQMessageProcessor
  * @see KDLQConfiguration
  */
-public interface KDLQMessageConsumer<K, V> {
+public interface KDLQMessageConsumer<K, V> extends AutoCloseable {
 
     /**
-     * Accepts Kafka message and processes it. If processing is successful, it does not perform
-     * any further actions; if redelivery is necessary, it submits the message for redelivery,
-     * and in case of unexpected errors, it causes the message to be sent to the DLQ according
-     * to the specified KDLQ configuration.
+     * Accepts Kafka message and processes it.<br>
+     * If processing is successful, it does not perform any further actions; a message is routed
+     * to the DLQ if the processor throws a {@link KDLQMessageMustBeKilledException} or returns the status
+     * {@link ru.joke.kdlq.KDLQMessageProcessor.ProcessingStatus#MUST_BE_KILLED}
+     * (if the number of DLQ delivery attempts exceeds the configured limit, the message is dropped).
+     * Otherwise, if the method returns {@link ru.joke.kdlq.KDLQMessageProcessor.ProcessingStatus#MUST_BE_REDELIVERED}
+     * or throws any exception other than {@link KDLQMessageMustBeKilledException}, the message is sent
+     * for redelivery to the redelivery queue (if the number of redelivery attempts exceeds the configured
+     * limit, the message is then routed to the DLQ).
      *
-     * @param message Kafka message, can not be {@code null}.
-     * @return status of the result of the consuming, can not be {@code null}.
+     * @param message Kafka message; cannot be {@code null}.
+     * @return status of the result of the consuming; cannot be {@code null}.
      * @see Status
      */
     @Nonnull
     Status accept(@Nonnull ConsumerRecord<K, V> message);
+
+    /**
+     * Returns unique id of this message consumer.
+     *
+     * @return id; cannot be {@code null} or empty.
+     */
+    @Nonnull
+    String id();
+
+    @Override
+    void close();
 
     /**
      * Status of the result of the consuming.
@@ -57,6 +73,9 @@ public interface KDLQMessageConsumer<K, V> {
          */
         ROUTED_TO_REDELIVERY_QUEUE,
 
+        /**
+         * Scheduled for redelivery (when delayed redelivery is configured).
+         */
         SCHEDULED_TO_REDELIVERY
     }
 }

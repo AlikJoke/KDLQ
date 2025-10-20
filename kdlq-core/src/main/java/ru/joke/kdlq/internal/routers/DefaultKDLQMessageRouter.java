@@ -13,6 +13,7 @@ import ru.joke.kdlq.spi.KDLQProducerRecord;
 import ru.joke.kdlq.spi.KDLQRedeliveryStorage;
 
 import javax.annotation.Nonnull;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 
@@ -75,7 +76,30 @@ final class DefaultKDLQMessageRouter<K, V> implements KDLQMessageRouter<K, V> {
             final var storage = this.redeliveryStorageFactory.get();
             if (storage != null) {
                 final var recordToStore = createRecordToRedelivery(recordToRedelivery, redelivered);
-                storage.store(recordToStore);
+
+                try {
+                    storage.store(recordToStore);
+                } catch (RuntimeException ex) {
+                    logger.error("Unable to schedule message redelivery to " + targetQueue, ex);
+                    listeners.forEach(
+                            l -> l.onDeferredMessageRedeliverySchedulingError(
+                                    this.sourceProcessorId,
+                                    originalMessage,
+                                    recordToRedelivery,
+                                    ex
+                            )
+                    );
+
+                    throw new KDLQException(ex);
+                }
+
+                listeners.forEach(
+                        l -> l.onDeferredMessageRedeliverySchedulingSuccess(
+                                this.sourceProcessorId,
+                                originalMessage,
+                                recordToRedelivery
+                        )
+                );
 
                 return RoutingStatus.SCHEDULED_TO_REDELIVERY;
             }
@@ -85,12 +109,12 @@ final class DefaultKDLQMessageRouter<K, V> implements KDLQMessageRouter<K, V> {
             this.messageSender.send(recordToRedelivery);
         } catch (Exception ex) {
             logger.error("Unable to redeliver message: " + targetQueue, ex);
-            listeners.forEach(l -> l.onMessageRedeliveryError(this.sourceProcessorId, originalMessage, recordToRedelivery, ex));
+            listeners.forEach(l -> l.onMessageRedeliveryError(this.sourceProcessorId, Optional.of(originalMessage), recordToRedelivery, ex));
 
             throw new KDLQException(ex);
         }
 
-        listeners.forEach(l -> l.onMessageRedeliverySuccess(this.sourceProcessorId, originalMessage, recordToRedelivery));
+        listeners.forEach(l -> l.onMessageRedeliverySuccess(this.sourceProcessorId, Optional.of(originalMessage), recordToRedelivery));
 
         return RoutingStatus.ROUTED_TO_REDELIVERY_QUEUE;
     }
@@ -104,7 +128,7 @@ final class DefaultKDLQMessageRouter<K, V> implements KDLQMessageRouter<K, V> {
         final int maxKills = dlqConfig.maxKills();
         if (maxKills >= 0 && killsCounter > maxKills) {
             logger.warn("Max kills count reached, message will be skipped");
-            listeners.forEach(l -> l.onMessageSkip(this.sourceProcessorId, originalMessage));
+            listeners.forEach(l -> l.onMessageDiscard(this.sourceProcessorId, originalMessage));
 
             return RoutingStatus.DISCARDED;
         }

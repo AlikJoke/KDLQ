@@ -1,16 +1,19 @@
 package ru.joke.kdlq;
 
-import javax.annotation.Nonnull;
-
 /**
  * Exception generated when the order of the method's calls of the KDLQ components is violated.
  *
  * @author Alik
  * @see KDLQException
  */
-public final class KDLQLifecycleException extends KDLQException {
+public class KDLQLifecycleException extends KDLQException {
 
-    public KDLQLifecycleException(@Nonnull String message) {
+    /**
+     * Constructs a new exception with {@code null} as its cause and provided detail message.
+     *
+     * @param message detail message; can be {@code null}.
+     */
+    public KDLQLifecycleException(final String message) {
         super(message);
     }
 }

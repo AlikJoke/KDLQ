@@ -1,7 +1,5 @@
 package ru.joke.kdlq;
 
-import javax.annotation.Nonnull;
-
 /**
  * Exception that occurs when the KDLQ configuration is configured incorrectly.
  *
@@ -10,7 +8,12 @@ import javax.annotation.Nonnull;
  */
 public final class KDLQConfigurationException extends KDLQException {
 
-    public KDLQConfigurationException(@Nonnull String message) {
+    /**
+     * Constructs a new exception with {@code null} as its cause and provided detail message.
+     *
+     * @param message detail message; can be {@code null}.
+     */
+    public KDLQConfigurationException(final String message) {
         super(message);
     }
 }

@@ -17,10 +17,6 @@ final class DefaultKDLQMessageSender<K, V> implements KDLQMessageSender<K, V> {
     private final KDLQProducersRegistry producersRegistry;
     private final KDLQConfiguration configuration;
 
-    DefaultKDLQMessageSender(final KDLQConfiguration configuration) {
-        this(KDLQProducersRegistryHolder.get(), configuration);
-    }
-
     DefaultKDLQMessageSender(
             final KDLQProducersRegistry producersRegistry,
             final KDLQConfiguration configuration
@@ -40,7 +36,7 @@ final class DefaultKDLQMessageSender<K, V> implements KDLQMessageSender<K, V> {
 
     private KDLQProducerSession<K, V> createProducerSession() {
         final KDLQProducerSession<K, V> session = this.producersRegistry.registerIfNeed(
-                this.configuration.id(),
+                this.configuration.producerId(),
                 () -> new KDLQProducerSession<>(this.configuration)
         );
 
@@ -53,7 +49,7 @@ final class DefaultKDLQMessageSender<K, V> implements KDLQMessageSender<K, V> {
 
     @Override
     public void close() {
-        final var producerSession = this.producersRegistry.get(this.configuration.id());
+        final var producerSession = this.producersRegistry.get(this.configuration.producerId());
         producerSession
                 .stream()
                 .peek(session -> logger.info("Closing KDLQ message producer"))
