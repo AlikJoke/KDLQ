@@ -18,8 +18,7 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.TimeUnit;
 
 /**
  * The entry point to the KDLQ library.<br>
@@ -38,7 +37,6 @@ public final class KDLQ {
 
     private static final KDLQ instance = new KDLQ();
 
-    private final Map<String, Lock> locks;
     private final Map<String, Map.Entry<KDLQConfiguration, KDLQMessageConsumer<?, ?>>> registeredConsumers;
     private final KDLQConfigurationRegistry configurationRegistry;
     private final KDLQMessageConsumerFactory messageConsumerFactory;
@@ -47,7 +45,6 @@ public final class KDLQ {
     private volatile boolean initialized;
 
     private KDLQ() {
-        this.locks = new ConcurrentHashMap<>();
         this.registeredConsumers = new ConcurrentHashMap<>();
         final var producersRegistry = new KDLQProducersRegistry();
         this.messageSenderFactory = new DefaultKDLQMessageSenderFactory(producersRegistry);
@@ -100,7 +97,12 @@ public final class KDLQ {
                     instance.messageSenderFactory
             );
 
-            redeliveryTask.run();
+            final var redeliveryPool = globalConfiguration.redeliveryPool();
+            redeliveryPool.schedule(
+                    redeliveryTask,
+                    globalConfiguration.redeliveryTaskDelay(),
+                    TimeUnit.MILLISECONDS
+            );
 
             instance.redeliveryStorageHolder.storage = globalConfiguration.redeliveryStorage();
         }
@@ -151,7 +153,7 @@ public final class KDLQ {
      * @throws KDLQException          if consumer with such id already registered
      */
     @Nonnull
-    public static <K, V> KDLQMessageConsumer<K, V> registerConsumer(
+    public synchronized static <K, V> KDLQMessageConsumer<K, V> registerConsumer(
             @Nonnull String id,
             @Nonnull KDLQConfiguration dlqConfiguration,
             @Nonnull KDLQMessageProcessor<K, V> messageProcessor
@@ -162,27 +164,22 @@ public final class KDLQ {
         Args.requireNotNull(dlqConfiguration, () -> new KDLQException("Provided configuration must be not null"));
         Args.requireNotNull(messageProcessor, () -> new KDLQException("Provided processor must be not null"));
 
-        final var lock = findLock(dlqConfiguration.id(), true);
-        lock.lock();
-        try {
-            @SuppressWarnings("unchecked")
-            final KDLQMessageConsumer<K, V> result = (KDLQMessageConsumer<K, V>) instance.registeredConsumers.compute(id, (cId, consumer) -> {
-                if (consumer != null) {
-                    throw new KDLQException("Consumer with such id already registered");
-                }
+        @SuppressWarnings("unchecked")
+        final KDLQMessageConsumer<K, V> result = (KDLQMessageConsumer<K, V>) instance.registeredConsumers.compute(id, (cId, consumer) -> {
+            if (consumer != null) {
+                throw new KDLQException("Consumer with such id already registered");
+            }
 
-                registerConfiguration(dlqConfiguration);
-                final var createdConsumer = instance.messageConsumerFactory.create(id, dlqConfiguration, messageProcessor);
+            registerConfiguration(dlqConfiguration);
+            final var configFromRegistry = instance.configurationRegistry.get(dlqConfiguration.id()).orElseThrow();
 
-                logger.debug("Consumer {} registered with config {}", id, dlqConfiguration);
+            final var createdConsumer = instance.messageConsumerFactory.create(id, configFromRegistry, messageProcessor);
+            logger.debug("Consumer {} registered with config {}", id, configFromRegistry);
 
-                return Map.entry(dlqConfiguration, createdConsumer);
-            });
+            return Map.entry(configFromRegistry, createdConsumer);
+        });
 
-            return result;
-        } finally {
-            lock.unlock();
-        }
+        return result;
     }
 
     /**
@@ -203,7 +200,7 @@ public final class KDLQ {
      *                                or consumer with such id already registered
      */
     @Nonnull
-    public static <K, V> KDLQMessageConsumer<K, V> registerConsumer(
+    public synchronized static <K, V> KDLQMessageConsumer<K, V> registerConsumer(
             @Nonnull String id,
             @Nonnull String configurationId,
             @Nonnull KDLQMessageProcessor<K, V> messageProcessor
@@ -241,7 +238,7 @@ public final class KDLQ {
      * @see KDLQMessageConsumer
      * @throws KDLQLifecycleException if KDLQ isn't initialized yet
      */
-    public static boolean unregisterConsumer(@Nonnull final String id) {
+    public static synchronized boolean unregisterConsumer(@Nonnull final String id) {
         checkInitialized();
 
         Args.requireNotEmpty(id, () -> new KDLQException("Provided consumer id must be not empty"));
@@ -251,19 +248,7 @@ public final class KDLQ {
             return false;
         }
 
-        final var lock = findLock(consumerEntry.getKey().id(), true);
-        lock.lock();
-
-        try {
-            final var consumer = instance.registeredConsumers.remove(id);
-            if (consumer == null) {
-                return false;
-            }
-
-            closeConsumer(consumer.getValue());
-        } finally {
-            lock.unlock();
-        }
+        closeConsumer(consumerEntry.getValue());
 
         return true;
     }
@@ -296,7 +281,7 @@ public final class KDLQ {
      * @throws KDLQConfigurationLifecycleException if {@code replaceIfRegistered == true} and
      * configuration already registered and some active consumer running with configuration with such id
      */
-    public static boolean registerConfiguration(
+    public static synchronized boolean registerConfiguration(
             @Nonnull final KDLQConfiguration configuration,
             final boolean replaceIfRegistered
     ) {
@@ -304,23 +289,17 @@ public final class KDLQ {
 
         Args.requireNotNull(configuration, () -> new KDLQException("Provided configuration must be not null"));
 
-        final var lock = findLock(configuration.id(), true);
-        lock.lock();
-        try {
-            if (replaceIfRegistered) {
-                if (instance.registeredConsumers.values()
-                        .stream()
-                        .anyMatch(c -> c.getKey().id().equals(configuration.id()))) {
-                    throw new KDLQConfigurationLifecycleException("There are consumers using this configuration. These consumers must be stopped beforehand.");
-                }
-
-                instance.configurationRegistry.unregister(configuration);
+        if (replaceIfRegistered) {
+            if (instance.registeredConsumers.values()
+                    .stream()
+                    .anyMatch(c -> c.getKey().id().equals(configuration.id()))) {
+                throw new KDLQConfigurationLifecycleException("There are consumers using this configuration. These consumers must be stopped beforehand.");
             }
 
-            return instance.configurationRegistry.register(configuration);
-        } finally {
-            lock.unlock();
+            instance.configurationRegistry.unregister(configuration);
         }
+
+        return instance.configurationRegistry.register(configuration);
     }
 
     /**
@@ -352,32 +331,17 @@ public final class KDLQ {
      * @throws KDLQConfigurationLifecycleException if some active consumer running with
      * configuration with such id
      */
-    public static boolean unregisterConfiguration(@Nonnull final String configurationId) {
+    public static synchronized boolean unregisterConfiguration(@Nonnull final String configurationId) {
         checkInitialized();
         Args.requireNotEmpty(configurationId, () -> new KDLQException("Provided configuration id must be not empty"));
 
-        final var lock = findLock(configurationId, false);
-        if (lock == null) {
-            return false;
+        if (instance.registeredConsumers.values()
+                .stream()
+                .anyMatch(c -> c.getKey().id().equals(configurationId))) {
+            throw new KDLQConfigurationLifecycleException("There are consumers using this configuration. These consumers must be stopped beforehand.");
         }
 
-        lock.lock();
-        try {
-            if (instance.registeredConsumers.values()
-                    .stream()
-                    .anyMatch(c -> c.getKey().id().equals(configurationId))) {
-                throw new KDLQConfigurationLifecycleException("There are consumers using this configuration. These consumers must be stopped beforehand.");
-            }
-
-            return instance.configurationRegistry.unregister(configurationId);
-        } finally {
-            instance.locks.remove(configurationId, lock);
-            lock.unlock();
-        }
-    }
-
-    private static Lock findLock(final String configurationId, final boolean createIfAbsent) {
-        return instance.locks.computeIfAbsent(configurationId, k -> createIfAbsent ? new ReentrantLock() : null);
+        return instance.configurationRegistry.unregister(configurationId);
     }
 
     private static void checkInitialized() {

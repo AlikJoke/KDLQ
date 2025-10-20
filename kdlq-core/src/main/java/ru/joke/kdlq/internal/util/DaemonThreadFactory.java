@@ -11,7 +11,7 @@ public final class DaemonThreadFactory implements ThreadFactory {
     private final AtomicInteger threadNumber = new AtomicInteger(0);
     private final String namePrefix;
 
-    public DaemonThreadFactory(final String prefix) {
+    public DaemonThreadFactory(@Nonnull final String prefix) {
         this.namePrefix = prefix + THREAD_LABEL;
     }
 
