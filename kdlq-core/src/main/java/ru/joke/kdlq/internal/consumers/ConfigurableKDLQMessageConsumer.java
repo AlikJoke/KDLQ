@@ -175,7 +175,8 @@ final class ConfigurableKDLQMessageConsumer<K, V> implements KDLQMessageConsumer
     private void callListeners(
             final ConsumerRecord<K, V> message,
             final KDLQMessageProcessor.ProcessingStatus processingStatus,
-            final RuntimeException processingError) {
+            final RuntimeException processingError
+    ) {
         this.dlqConfiguration.lifecycleListeners().forEach(l -> l.onMessageProcessing(this.id, message, processingStatus, processingError));
     }
 }

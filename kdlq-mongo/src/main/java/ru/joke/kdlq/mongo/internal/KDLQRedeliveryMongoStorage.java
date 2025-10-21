@@ -9,7 +9,7 @@ import org.bson.Document;
 import org.bson.types.Binary;
 import org.bson.types.ObjectId;
 import ru.joke.kdlq.KDLQConfiguration;
-import ru.joke.kdlq.spi.KDLQProducerRecord;
+import ru.joke.kdlq.KDLQProducerRecord;
 import ru.joke.kdlq.spi.KDLQRedeliveryStorage;
 
 import javax.annotation.Nonnegative;
@@ -34,7 +34,7 @@ public final class KDLQRedeliveryMongoStorage implements KDLQRedeliveryStorage {
     }
 
     @Override
-    public void store(@Nonnull KDLQProducerRecord<?, ?> message) {
+    public void store(@Nonnull KDLQProducerRecord<byte[], byte[]> message) {
 
         final var record = message.record();
         final Document messageDoc =
@@ -46,12 +46,11 @@ public final class KDLQRedeliveryMongoStorage implements KDLQRedeliveryStorage {
                         .append("cfg", message.configuration().id())
                         .append("prt", record.partition());
 
-        final var redeliveryConfig = message.configuration().redelivery();
         if (record.key() != null) {
-            messageDoc.append("ky", new Binary(redeliveryConfig.messageKeyConverter().toByteArray(record.key())));
+            messageDoc.append("ky", new Binary(record.key()));
         }
 
-        messageDoc.append("val", new Binary(redeliveryConfig.messageBodyConverter().toByteArray(record.value())));
+        messageDoc.append("val", new Binary(record.value()));
 
         final var headersDoc = new Document();
         record.headers().forEach(h -> headersDoc.append(h.key(), new Binary(h.value())));
@@ -65,20 +64,20 @@ public final class KDLQRedeliveryMongoStorage implements KDLQRedeliveryStorage {
 
     @Nonnull
     @Override
-    public List<KDLQProducerRecord<?, ?>> findAllReadyToRedelivery(
+    public List<KDLQProducerRecord<byte[], byte[]>> findAllReadyToRedelivery(
             @Nonnull Function<String, KDLQConfiguration> configurationLoader,
             @Nonnegative final long timestamp
     ) {
         // TODO
         return this.collection.find(Filters.lte(REDELIVERY_TS_FIELD, timestamp))
-                .map(d -> new KDLQProducerRecord<>() {
+                .map(d -> new KDLQProducerRecord<byte[], byte[]>() {
                     @Override
                     public String id() {
                         return null;
                     }
 
                     @Override
-                    public ProducerRecord<Object, Object> record() {
+                    public ProducerRecord<byte[], byte[]> record() {
                         return null;
                     }
 

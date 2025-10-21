@@ -3,12 +3,21 @@ package ru.joke.kdlq.internal.configs;
 import ru.joke.kdlq.KDLQConfiguration;
 
 import javax.annotation.Nonnull;
+import javax.annotation.concurrent.ThreadSafe;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Default implementation of the KDLQ configs ({@link KDLQConfiguration}) registry
+ * based on the {@link ConcurrentHashMap}.
+ *
+ * @author Alik
+ * @see KDLQConfigurationRegistry
+ */
+@ThreadSafe
 public final class DefaultKDLQConfigurationRegistry implements KDLQConfigurationRegistry {
 
     private final Map<String, KDLQConfiguration> registry = new ConcurrentHashMap<>();
@@ -16,11 +25,6 @@ public final class DefaultKDLQConfigurationRegistry implements KDLQConfiguration
     @Override
     public boolean register(@Nonnull KDLQConfiguration configuration) {
         return this.registry.putIfAbsent(configuration.id(), configuration) == null;
-    }
-
-    @Override
-    public boolean unregister(@Nonnull KDLQConfiguration configuration) {
-        return this.registry.remove(configuration.id(), configuration);
     }
 
     @Override

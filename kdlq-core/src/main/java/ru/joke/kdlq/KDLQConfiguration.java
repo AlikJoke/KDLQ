@@ -1,7 +1,5 @@
 package ru.joke.kdlq;
 
-import ru.joke.kdlq.spi.KDLQDataConverter;
-
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -29,8 +27,6 @@ import java.util.Set;
  * <li>The multiplier for the delayed delivery interval across a series of redeliveries.</li>
  * <li>The maximum delayed message redelivery interval (a ceiling for interval calculation,
  * considering the multiplier).</li>
- * <li>Kafka message key converter for storing messages awaiting redelivery.</li>
- * <li>Kafka message body converter for storing messages awaiting redelivery.</li>
  * <li>Optional message lifecycle listeners that allow code to be executed at
  * various stages of message processing.</li>
  * </ul>
@@ -39,7 +35,6 @@ import java.util.Set;
  * @see KDLQMessageLifecycleListener
  * @see KDLQMessageConsumer
  * @see KDLQMessageProcessor
- * @see KDLQDataConverter
  */
 public sealed interface KDLQConfiguration permits ImmutableKDLQConfiguration {
 
@@ -204,28 +199,6 @@ public sealed interface KDLQConfiguration permits ImmutableKDLQConfiguration {
          */
         @Nonnegative
         int maxRedeliveryDelay();
-
-        /**
-         * Returns Kafka message key converter for storing messages awaiting redelivery.
-         *
-         * @param <K> type of message key
-         * @return message key converter; can be {@code null} if redelivery storage
-         * is not used (redelivery delay must be {@code 0}).
-         * @see KDLQDataConverter
-         */
-        @Nullable
-        <K> KDLQDataConverter<K> messageKeyConverter();
-
-        /**
-         * Returns Kafka message body converter for storing messages awaiting redelivery.
-         *
-         * @param <V> type of message body
-         * @return message body converter; can be {@code null} if redelivery storage
-         * is not used (redelivery delay must be {@code 0}).
-         * @see KDLQDataConverter
-         */
-        @Nullable
-        <V> KDLQDataConverter<V> messageBodyConverter();
 
         /**
          * Returns a builder instance for more convenient construction of the redelivery object.

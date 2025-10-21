@@ -1,5 +1,7 @@
 package ru.joke.kdlq.internal.redelivery;
 
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.joke.kdlq.KDLQConfiguration;
@@ -7,13 +9,13 @@ import ru.joke.kdlq.KDLQGlobalConfiguration;
 import ru.joke.kdlq.internal.configs.KDLQConfigurationRegistry;
 import ru.joke.kdlq.internal.routers.KDLQMessageSender;
 import ru.joke.kdlq.internal.routers.KDLQMessageSenderFactory;
-import ru.joke.kdlq.spi.KDLQProducerRecord;
+import ru.joke.kdlq.KDLQProducerRecord;
 
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 public final class RedeliveryTask implements Runnable {
 
@@ -55,26 +57,43 @@ public final class RedeliveryTask implements Runnable {
     }
 
     private void redeliver() {
-        final Map<String, KDLQMessageSender<?, ?>> sendersMap =
-                this.configurationRegistry.getAll().stream().collect(
-                        Collectors.toMap(KDLQConfiguration::producerId, this.senderFactory::create));
+        final Map<String, KDLQConfiguration> configsToSend = new HashMap<>();
+        final Map<String, KDLQMessageSender<byte[], byte[]>> sendersMap = new HashMap<>();
 
-        globalConfiguration.redeliveryStorage().findAllReadyToRedelivery(cfgId -> this.configurationRegistry.get(cfgId).orElse(null), System.currentTimeMillis())
-                .forEach(record -> redeliver(sendersMap, record));
+        final var storage = this.globalConfiguration.redeliveryStorage();
+        try {
+            storage.findAllReadyToRedelivery(this::findConfigById, System.currentTimeMillis())
+                    .forEach(record -> redeliver(sendersMap, configsToSend, record));
+        } finally {
+            sendersMap.values().forEach(KDLQMessageSender::close);
+        }
     }
 
-    @SuppressWarnings("unchecked")
+    private KDLQConfiguration findConfigById(final String configId) {
+        return this.configurationRegistry.get(configId).orElse(null);
+    }
+
     private void redeliver(
-            final Map<String, KDLQMessageSender<?, ?>> senders,
-            final KDLQProducerRecord<?, ?> record
+            final Map<String, KDLQMessageSender<byte[], byte[]>> senders,
+            final Map<String, KDLQConfiguration> configs,
+            final KDLQProducerRecord<byte[], byte[]> record
     ) {
-        @SuppressWarnings("rawtypes")
-        final KDLQMessageSender sender = senders.get(record.configuration().producerId());
-        if (sender == null) {
+        final var originalConfig = record.configuration();
+        if (originalConfig == null) {
             return;
         }
 
-        final var lifecycleListeners = record.configuration().lifecycleListeners();
+        final var configToSend = configs.computeIfAbsent(
+                originalConfig.id(),
+                k -> buildConfigurationToSend(record.configuration())
+        );
+
+        final var sender = senders.computeIfAbsent(
+                configToSend.producerId(),
+                k -> this.senderFactory.create(configToSend)
+        );
+
+        final var lifecycleListeners = configToSend.lifecycleListeners();
         final var sourceProcessorId = new String(record.record().headers().lastHeader("KDLQ_PrcMarker").value(), StandardCharsets.UTF_8);
         try {
             sender.send(record.record());
@@ -87,5 +106,18 @@ public final class RedeliveryTask implements Runnable {
 
         lifecycleListeners.forEach(l -> l.onMessageRedeliverySuccess(sourceProcessorId, Optional.empty(), record.record()));
         this.globalConfiguration.redeliveryStorage().deleteById(record.id());
+    }
+
+    private KDLQConfiguration buildConfigurationToSend(final KDLQConfiguration original) {
+        final Map<String, Object> producerProperties = new HashMap<>(original.producerProperties());
+        producerProperties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class);
+        producerProperties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class);
+
+        return KDLQConfiguration.builder()
+                                    .withId(original.id())
+                                    .withProducerProperties(producerProperties)
+                                    .withLifecycleListeners(original.lifecycleListeners())
+                                    .withRedelivery(original.redelivery())
+                                .build(original.bootstrapServers(), original.dlq());
     }
 }

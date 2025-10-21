@@ -25,6 +25,7 @@ final class DefaultKDLQMessageSender<K, V> implements KDLQMessageSender<K, V> {
         this.configuration = configuration;
     }
 
+    @Override
     public void send(ProducerRecord<K, V> record) throws Exception {
         final var producerSession = createProducerSession();
         producerSession.producer().send(record, (recordMetadata, e) -> {

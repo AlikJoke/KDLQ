@@ -9,9 +9,18 @@ import ru.joke.kdlq.spi.KDLQRedeliveryStorage;
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.Immutable;
+import javax.annotation.concurrent.ThreadSafe;
 import java.util.concurrent.ScheduledExecutorService;
 
-public class DefaultKDLQGlobalConfigurationFactory implements KDLQGlobalConfigurationFactory {
+/**
+ * Default implementation of the global configuration ({@link KDLQGlobalConfiguration}) factory {@link KDLQGlobalConfigurationFactory}.
+ *
+ * @author Alik
+ */
+@ThreadSafe
+@Immutable
+public final class DefaultKDLQGlobalConfigurationFactory implements KDLQGlobalConfigurationFactory {
 
     @Override
     @Nonnull

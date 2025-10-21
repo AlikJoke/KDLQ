@@ -26,10 +26,10 @@ public interface KDLQGlobalConfigurationFactory {
      * Creates a configuration object for a standalone application with an in-memory
      * (stateless) storage, using the specified thread pool to run the message
      * redelivery task at the specified frequency.<br>
-     * The library does not manage the lifecycle of the thread pool if it is created outside of KDLQ.<br><br>
+     * The library does not manage the lifecycle of the thread pool if it is created outside the KDLQ.<br><br>
      * <b>Data will be lost when using this configuration, as it is stored in memory.
      * Furthermore, using this type of data storage can lead to {@link OutOfMemoryError} errors (OOM).<br>
-     * Not suitable for use in a distributed system!</b>
+     * Not suitable for use in a distributed or production system!</b>
      *
      * @param redeliveryPool      specified thread pool to run redelivery task; can be {@code null}
      *                            (in such case a single-threaded pool managed by the KDLQ library will be created).
@@ -48,7 +48,7 @@ public interface KDLQGlobalConfigurationFactory {
      * to run the message redelivery task at the specified frequency.<br><br>
      * <b>Data will be lost when using this configuration, as it is stored in memory.
      * Furthermore, using this type of data storage can lead to {@link OutOfMemoryError} errors (OOM).<br>
-     * Not suitable for use in a distributed system!</b>
+     * Not suitable for use in a distributed or production system!</b>
      *
      * @param redeliveryTaskDelay specified redelivery task frequency as millis; cannot be {@code <= 0}.
      * @return global configuration object with provided parameters; cannot be {@code null}.
@@ -60,7 +60,7 @@ public interface KDLQGlobalConfigurationFactory {
      * Creates a configuration object for a standalone application with the specified
      * storage and the specified thread pool to run the message redelivery task at
      * the specified frequency.<br>
-     * The library does not manage the lifecycle of the thread pool if it is created outside of KDLQ.<br>
+     * The library does not manage the lifecycle of the thread pool if it is created outside the KDLQ.<br>
      * <b>Not suitable for use in a distributed system!</b>
      *
      * @param redeliveryPool      specified thread pool to run redelivery task; can be {@code null}
@@ -97,7 +97,7 @@ public interface KDLQGlobalConfigurationFactory {
      * Creates a configuration object for an application with the specified storage,
      * distributed locking service, and thread pool to run the message redelivery task
      * at the specified frequency.<br>
-     * The library does not manage the lifecycle of the thread pool if it is created outside of KDLQ.<br>
+     * The library does not manage the lifecycle of the thread pool if it is created outside the KDLQ.<br>
      * <b>The implementations of the storage and distributed locking service must meet
      * the requirements specified in the documentation for these services for use in a
      * distributed application.</b>

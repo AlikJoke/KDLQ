@@ -23,7 +23,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * The entry point to the KDLQ library.<br>
  * Before use, the initialization method ({@link KDLQ#initialize()} or {@link KDLQ#initialize(KDLQGlobalConfiguration)})
- * must be called. When the application shuts down, the {@link KDLQ#shutdown()} ()} method must be called.
+ * must be called. When the application shuts down, the {@link KDLQ#shutdown()} method must be called.
  *
  * @author Alik
  *

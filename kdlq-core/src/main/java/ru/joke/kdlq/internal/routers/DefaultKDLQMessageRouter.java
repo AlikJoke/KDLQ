@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory;
 import ru.joke.kdlq.KDLQConfiguration;
 import ru.joke.kdlq.KDLQException;
 import ru.joke.kdlq.internal.redelivery.DefaultKDLQProducerRecord;
-import ru.joke.kdlq.spi.KDLQProducerRecord;
+import ru.joke.kdlq.KDLQProducerRecord;
 import ru.joke.kdlq.spi.KDLQRedeliveryStorage;
 
 import javax.annotation.Nonnull;
@@ -159,7 +159,7 @@ final class DefaultKDLQMessageRouter<K, V> implements KDLQMessageRouter<K, V> {
         this.messageSender.close();
     }
 
-    private KDLQProducerRecord<K, V> createRecordToRedelivery(
+    private KDLQProducerRecord<byte[], byte[]> createRecordToRedelivery(
             final ProducerRecord<K, V> record,
             final int redeliveryAttempt
     ) {
@@ -167,9 +167,11 @@ final class DefaultKDLQMessageRouter<K, V> implements KDLQMessageRouter<K, V> {
         final long redeliveryDelayMs = (long) (redeliveryConfig.redeliveryDelay() * Math.pow(redeliveryConfig.redeliveryDelayMultiplier(), redeliveryAttempt - 1));
         final long nextRedeliveryTimestamp = System.currentTimeMillis() + redeliveryDelayMs;
 
+        // TODO record to redelivery
+        final ProducerRecord<byte[], byte[]> recordToRedelivery = null;
         return new DefaultKDLQProducerRecord<>(
                 UUID.randomUUID().toString(),
-                record,
+                recordToRedelivery,
                 this.dlqConfiguration,
                 nextRedeliveryTimestamp
         );

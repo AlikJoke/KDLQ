@@ -1,7 +1,6 @@
 package ru.joke.kdlq;
 
 import ru.joke.kdlq.internal.util.Args;
-import ru.joke.kdlq.spi.KDLQDataConverter;
 
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
@@ -141,12 +140,6 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
      *                                        if the value is {@code 0}, redelivery will occur immediately.
      * @param maxRedeliveryDelay              the maximum delayed redelivery interval in milliseconds;
      *                                        cannot be {@code < 0}.
-     * @param messageKeyConverter             Kafka message key converter for storing messages awaiting redelivery;
-     *                                        can be {@code null} if redelivery storage is not used (redelivery
-     *                                        delay must be {@code 0}).
-     * @param messageBodyConverter            Kafka message body converter for storing messages awaiting redelivery;
-     *                                        can be {@code null} if redelivery storage is not used (redelivery
-     *                                        delay must be {@code 0}).
      */
     @Immutable
     @ThreadSafe
@@ -155,17 +148,12 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
             int maxRedeliveryAttemptsBeforeKill,
             double redeliveryDelayMultiplier,
             @Nonnegative int redeliveryDelay,
-            @Nonnegative int maxRedeliveryDelay,
-            @Nullable KDLQDataConverter<?> messageKeyConverter,
-            @Nullable KDLQDataConverter<?> messageBodyConverter
+            @Nonnegative int maxRedeliveryDelay
     ) implements KDLQConfiguration.Redelivery {
 
         public Redelivery {
             Args.requireNonNegative(redeliveryDelay, () -> new KDLQConfigurationException("Redelivery delay must be non negative"));
             Args.requireNonNegative(maxRedeliveryDelay, () -> new KDLQConfigurationException("Max redelivery delay must be non negative"));
-            if (redeliveryDelay > 0 && (messageKeyConverter == null || messageBodyConverter == null)) {
-                throw new KDLQConfigurationException("Converters must be provided when redelivery delay is specified");
-            }
 
             if (redeliveryDelayMultiplier <= 0) {
                 throw new KDLQConfigurationException("Redelivery delay multiplier must be positive");
@@ -195,8 +183,6 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
             private double redeliveryDelayMultiplier = 1.5;
             private int redeliveryDelay;
             private int maxRedeliveryDelay;
-            private KDLQDataConverter<?> messageKeyConverter;
-            private KDLQDataConverter<?> messageBodyConverter;
 
             /**
              * Sets the queue (topic) to redelivery messages
@@ -267,32 +253,6 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
             }
 
             /**
-             * Sets Kafka message key converter for storing messages awaiting redelivery.
-             *
-             * @param messageKeyConverter message key converter; can be {@code null} if {@code redeliveryDelay() == 0}.
-             * @return the current builder object for further construction; cannot be {@code null}.
-             * @see KDLQConfiguration.Redelivery#messageKeyConverter()
-             */
-            @Nonnull
-            public Builder withMessageKeyConverter(@Nullable KDLQDataConverter<?> messageKeyConverter) {
-                this.messageKeyConverter = messageKeyConverter;
-                return this;
-            }
-
-            /**
-             * Sets Kafka message body converter for storing messages awaiting redelivery.
-             *
-             * @param messageBodyConverter message body converter; can be {@code null} if {@code redeliveryDelay() == 0}.
-             * @return the current builder object for further construction; cannot be {@code null}.
-             * @see KDLQConfiguration.Redelivery#messageKeyConverter()
-             */
-            @Nonnull
-            public Builder withMessageBodyConverter(@Nullable KDLQDataConverter<?> messageBodyConverter) {
-                this.messageBodyConverter = messageBodyConverter;
-                return this;
-            }
-
-            /**
              * Creates a redelivery configuration object with the specified parameters.<br>
              *
              * @return created redelivery configuration object; cannot be {@code null}.
@@ -305,9 +265,7 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
                         this.maxRedeliveryAttemptsBeforeKill,
                         this.redeliveryDelayMultiplier,
                         this.redeliveryDelay,
-                        this.maxRedeliveryDelay,
-                        this.messageKeyConverter,
-                        this.messageBodyConverter
+                        this.maxRedeliveryDelay
                 );
             }
         }
@@ -503,7 +461,7 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
         @Nonnull
         public KDLQConfiguration build(
                 @Nonnull final Set<String> bootstrapServers,
-                @Nonnull final DLQ dlq
+                @Nonnull final KDLQConfiguration.DLQ dlq
         ) {
             final var redelivery =
                     this.redelivery == null
