@@ -11,7 +11,7 @@ import ru.joke.kdlq.KDLQException;
 import ru.joke.kdlq.KDLQMessageLifecycleListener;
 import ru.joke.kdlq.ImmutableKDLQConfiguration;
 import ru.joke.kdlq.internal.routers.KDLQMessageRouter;
-import ru.joke.kdlq.internal.routers.KDLQProducersRegistry;
+import ru.joke.kdlq.internal.routers.producers.KDLQProducersRegistry;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Set;
@@ -25,7 +25,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-public class DefaultKDLQMessageRouterTest {
+public class InternalKDLQMessageRouterTest {
 
     private static final String DLQ_NAME = "test1";
     private static final String REDELIVERY_QUEUE_NAME = "test2";

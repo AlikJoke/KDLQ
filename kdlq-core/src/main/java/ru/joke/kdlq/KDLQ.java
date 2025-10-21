@@ -2,14 +2,15 @@ package ru.joke.kdlq;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import ru.joke.kdlq.internal.configs.DefaultKDLQConfigurationRegistry;
+import ru.joke.kdlq.internal.configs.InternalKDLQConfigurationRegistry;
 import ru.joke.kdlq.internal.configs.KDLQConfigurationRegistry;
-import ru.joke.kdlq.internal.consumers.DefaultKDLQMessageConsumerFactory;
+import ru.joke.kdlq.internal.consumers.ConfigurableKDLQMessageConsumerFactory;
 import ru.joke.kdlq.internal.consumers.KDLQMessageConsumerFactory;
 import ru.joke.kdlq.internal.redelivery.RedeliveryTask;
-import ru.joke.kdlq.internal.routers.DefaultKDLQMessageRouterFactory;
-import ru.joke.kdlq.internal.routers.DefaultKDLQMessageSenderFactory;
-import ru.joke.kdlq.internal.routers.KDLQProducersRegistry;
+import ru.joke.kdlq.internal.routers.InternalKDLQMessageRouterFactory;
+import ru.joke.kdlq.internal.routers.headers.KDLQHeadersService;
+import ru.joke.kdlq.internal.routers.producers.InternalKDLQMessageProducerFactory;
+import ru.joke.kdlq.internal.routers.producers.InternalKDLQProducersRegistry;
 import ru.joke.kdlq.internal.util.Args;
 import ru.joke.kdlq.spi.KDLQRedeliveryStorage;
 
@@ -41,20 +42,22 @@ public final class KDLQ {
     private final KDLQConfigurationRegistry configurationRegistry;
     private final KDLQMessageConsumerFactory messageConsumerFactory;
     private final RedeliveryStorageHolder redeliveryStorageHolder;
-    private final DefaultKDLQMessageSenderFactory messageSenderFactory;
+    private final InternalKDLQMessageProducerFactory messageSenderFactory;
     private volatile boolean initialized;
+    private volatile RedeliveryTask redeliveryTask;
 
     private KDLQ() {
         this.registeredConsumers = new ConcurrentHashMap<>();
-        final var producersRegistry = new KDLQProducersRegistry();
-        this.messageSenderFactory = new DefaultKDLQMessageSenderFactory(producersRegistry);
+        final var producersRegistry = new InternalKDLQProducersRegistry();
+        this.messageSenderFactory = new InternalKDLQMessageProducerFactory(producersRegistry);
         this.redeliveryStorageHolder = new RedeliveryStorageHolder();
-        this.configurationRegistry = new DefaultKDLQConfigurationRegistry();
-        final var routerFactory = new DefaultKDLQMessageRouterFactory(
+        this.configurationRegistry = new InternalKDLQConfigurationRegistry();
+        final var routerFactory = new InternalKDLQMessageRouterFactory(
                 this.messageSenderFactory,
-                () -> this.redeliveryStorageHolder.storage
+                () -> this.redeliveryStorageHolder.storage,
+                new KDLQHeadersService()
         );
-        this.messageConsumerFactory = new DefaultKDLQMessageConsumerFactory(
+        this.messageConsumerFactory = new ConfigurableKDLQMessageConsumerFactory(
                 this.configurationRegistry,
                 routerFactory,
                 KDLQ::unregisterConsumer
@@ -91,7 +94,7 @@ public final class KDLQ {
         logger.info("KDLQ initialization started with config: {}", globalConfiguration);
 
         if (globalConfiguration != null) {
-            final var redeliveryTask = new RedeliveryTask(
+            instance.redeliveryTask = new RedeliveryTask(
                     globalConfiguration,
                     instance.configurationRegistry,
                     instance.messageSenderFactory
@@ -99,7 +102,7 @@ public final class KDLQ {
 
             final var redeliveryPool = globalConfiguration.redeliveryPool();
             redeliveryPool.schedule(
-                    redeliveryTask,
+                    instance.redeliveryTask,
                     globalConfiguration.redeliveryTaskDelay(),
                     TimeUnit.MILLISECONDS
             );
@@ -126,6 +129,11 @@ public final class KDLQ {
         logger.info("KDLQ shutdown started");
 
         instance.initialized = false;
+
+        if (instance.redeliveryTask != null) {
+            instance.redeliveryTask.close();
+        }
+
         for (var consumer : instance.registeredConsumers.values()) {
             closeConsumer(consumer.getValue());
         }
@@ -140,6 +148,7 @@ public final class KDLQ {
 
     /**
      * Registers a new KDLQ consumer with the specified id, configuration, and message handler.<br>
+     * Example of usage see in {@link KDLQMessageConsumer}.<br>
      * <b>The KDLQ subsystem must be initialized before calling this method!</b>
      *
      * @param id               id of the consumer (must be unique); cannot be {@code null} or empty.
@@ -184,6 +193,7 @@ public final class KDLQ {
 
     /**
      * Registers a new KDLQ consumer with the specified id, configuration id, and message handler.<br>
+     * Example of usage see in {@link KDLQMessageConsumer}.<br>
      * <b>The KDLQ subsystem must be initialized before calling this method,
      * and a configuration with the provided id must have been registered previously!</b>
      *
@@ -245,10 +255,12 @@ public final class KDLQ {
 
         final var consumerEntry = instance.registeredConsumers.get(id);
         if (consumerEntry == null) {
+            logger.debug("Cannot unregister consumer: consumer {} is not registered", id);
             return false;
         }
 
         closeConsumer(consumerEntry.getValue());
+        logger.debug("Consumer {} unregistered and closed", id);
 
         return true;
     }
@@ -299,7 +311,10 @@ public final class KDLQ {
             instance.configurationRegistry.unregister(configuration);
         }
 
-        return instance.configurationRegistry.register(configuration);
+        final var registered = instance.configurationRegistry.register(configuration);
+        logger.debug("Configuration {} was registered: {}", configuration, registered);
+
+        return registered;
     }
 
     /**
@@ -341,7 +356,10 @@ public final class KDLQ {
             throw new KDLQConfigurationLifecycleException("There are consumers using this configuration. These consumers must be stopped beforehand.");
         }
 
-        return instance.configurationRegistry.unregister(configurationId);
+        final boolean unregistered = instance.configurationRegistry.unregister(configurationId);
+        logger.debug("Configuration {} was unregistered: {}", configurationId, unregistered);
+
+        return unregistered;
     }
 
     private static void checkInitialized() {

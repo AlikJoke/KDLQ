@@ -44,6 +44,7 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
         Args.requireNotNull(producerProperties, () -> new KDLQConfigurationException("Kafka producer properties must be not null"));
         Args.requireNotEmpty(lifecycleListeners, () -> new KDLQConfigurationException("Lifecycle listeners must be not null"));
         Args.requireNotEmpty(id, () -> new KDLQConfigurationException("Configuration id must be not empty"));
+        Args.requireNotEmpty(producerProperties, () -> new KDLQConfigurationException("Producer properties cannot be empty"));
 
         this.bootstrapServers = Set.copyOf(bootstrapServers);
         this.dlq = Args.requireNotNull(dlq, () -> new KDLQConfigurationException("DLQ be not empty"));
@@ -359,7 +360,6 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
 
         private String id;
         private final Set<KDLQMessageLifecycleListener> lifecycleListeners = new HashSet<>();
-        private final Map<String, Object> producerProperties = new HashMap<>();
         private boolean addOptionalInformationalHeaders;
         private KDLQConfiguration.DLQ dlq;
         private KDLQConfiguration.Redelivery redelivery;
@@ -411,19 +411,6 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
         }
 
         /**
-         * Sets the additional properties of the Kafka producer.
-         *
-         * @param producerProperties properties of the Kafka producer; cannot be {@code null}.
-         * @return the current builder object for further construction; cannot be {@code null}.
-         * @see KDLQConfiguration#producerProperties()
-         */
-        @Nonnull
-        public Builder withProducerProperties(@Nonnull Map<String, Object> producerProperties) {
-            this.producerProperties.putAll(Objects.requireNonNull(producerProperties, "producerProperties"));
-            return this;
-        }
-
-        /**
          * Sets the flag whether optional information headers should be added to the message.
          *
          * @param addInformationalHeaders whether optional information headers should be added to the message.
@@ -452,8 +439,9 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
          * Mandatory parameters are passed as arguments to this method; others are optional,
          * and if not explicitly set in the builder, default values will be used.
          *
-         * @param bootstrapServers bootstraps servers; cannot be {@code null} or empty.
-         * @param dlq              dlq configuration; cannot be {@code null}.
+         * @param bootstrapServers   bootstraps servers; cannot be {@code null} or empty.
+         * @param producerProperties properties of the Kafka producer; cannot be {@code null}.
+         * @param dlq                dlq configuration; cannot be {@code null}.
          * @return created configuration object; cannot be {@code null}.
          * @see KDLQConfiguration#dlq()
          * @see KDLQConfiguration#bootstrapServers()
@@ -461,6 +449,7 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
         @Nonnull
         public KDLQConfiguration build(
                 @Nonnull final Set<String> bootstrapServers,
+                @Nonnull final Map<String, Object> producerProperties,
                 @Nonnull final KDLQConfiguration.DLQ dlq
         ) {
             final var redelivery =
@@ -468,10 +457,11 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
                             ? Redelivery.builder().build()
                             : this.redelivery;
             final var id = this.id == null ? UUID.randomUUID().toString() : this.id;
+
             return new ImmutableKDLQConfiguration(
                     id,
                     bootstrapServers,
-                    this.producerProperties,
+                    producerProperties,
                     dlq,
                     redelivery,
                     this.lifecycleListeners,

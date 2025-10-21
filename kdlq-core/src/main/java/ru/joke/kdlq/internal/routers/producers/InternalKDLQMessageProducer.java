@@ -1,4 +1,4 @@
-package ru.joke.kdlq.internal.routers;
+package ru.joke.kdlq.internal.routers.producers;
 
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.slf4j.Logger;
@@ -8,16 +8,16 @@ import ru.joke.kdlq.KDLQException;
 
 import java.util.concurrent.TimeUnit;
 
-final class DefaultKDLQMessageSender<K, V> implements KDLQMessageSender<K, V> {
+final class InternalKDLQMessageProducer<K, V> implements KDLQMessageProducer<K, V> {
 
-    private static final Logger logger = LoggerFactory.getLogger(DefaultKDLQMessageRouter.class);
+    private static final Logger logger = LoggerFactory.getLogger(InternalKDLQMessageProducer.class);
 
     private static final int WAIT_TIMEOUT = 30;
 
     private final KDLQProducersRegistry producersRegistry;
     private final KDLQConfiguration configuration;
 
-    DefaultKDLQMessageSender(
+    InternalKDLQMessageProducer(
             final KDLQProducersRegistry producersRegistry,
             final KDLQConfiguration configuration
     ) {
@@ -38,7 +38,7 @@ final class DefaultKDLQMessageSender<K, V> implements KDLQMessageSender<K, V> {
     private KDLQProducerSession<K, V> createProducerSession() {
         final KDLQProducerSession<K, V> session = this.producersRegistry.registerIfNeed(
                 this.configuration.producerId(),
-                () -> new KDLQProducerSession<>(this.configuration)
+                () -> new InternalKDLQProducerSession<>(this.configuration)
         );
 
         if (!session.onUsage()) {

@@ -18,7 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * @see KDLQConfigurationRegistry
  */
 @ThreadSafe
-public final class DefaultKDLQConfigurationRegistry implements KDLQConfigurationRegistry {
+public final class InternalKDLQConfigurationRegistry implements KDLQConfigurationRegistry {
 
     private final Map<String, KDLQConfiguration> registry = new ConcurrentHashMap<>();
 

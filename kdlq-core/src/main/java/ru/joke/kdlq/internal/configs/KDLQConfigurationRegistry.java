@@ -12,7 +12,7 @@ import java.util.Set;
  * @author Alik
  * @see KDLQConfiguration
  */
-public interface KDLQConfigurationRegistry {
+public sealed interface KDLQConfigurationRegistry permits InternalKDLQConfigurationRegistry {
 
     /**
      * Registers the provided configuration object if a configuration with the same identifier

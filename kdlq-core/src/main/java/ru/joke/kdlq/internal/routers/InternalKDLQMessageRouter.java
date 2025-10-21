@@ -8,45 +8,42 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.joke.kdlq.KDLQConfiguration;
 import ru.joke.kdlq.KDLQException;
-import ru.joke.kdlq.internal.redelivery.DefaultKDLQProducerRecord;
 import ru.joke.kdlq.KDLQProducerRecord;
+import ru.joke.kdlq.internal.routers.headers.KDLQHeadersService;
+import ru.joke.kdlq.internal.routers.producers.KDLQMessageProducer;
 import ru.joke.kdlq.spi.KDLQRedeliveryStorage;
 
+import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 
-final class DefaultKDLQMessageRouter<K, V> implements KDLQMessageRouter<K, V> {
+import static ru.joke.kdlq.internal.routers.headers.KDLQHeaders.*;
 
-    private static final Logger logger = LoggerFactory.getLogger(DefaultKDLQMessageRouter.class);
+public final class InternalKDLQMessageRouter<K, V> implements KDLQMessageRouter<K, V> {
+
+    private static final Logger logger = LoggerFactory.getLogger(InternalKDLQMessageRouter.class);
 
     private static final int WAIT_TIMEOUT = 30;
-
-    static final String MESSAGE_KILLS_HEADER = "KDLQ_Kills";
-    static final String MESSAGE_PRC_MARKER_HEADER = "KDLQ_PrcMarker";
-    static final String MESSAGE_TIMESTAMP_HEADER = "KDLQ_OrigTs";
-    static final String MESSAGE_OFFSET_HEADER = "KDLQ_OrigOffset";
-    static final String MESSAGE_PARTITION_HEADER = "KDLQ_OrigPartition";
-    static final String MESSAGE_REDELIVERY_ATTEMPTS_HEADER = "KDLQ_Redelivered";
-    static final String MESSAGE_REDELIVERY_TIME_HEADER = "KDLQ_RedeliveryTime";
 
     private final KDLQHeadersService headersService;
     private final KDLQConfiguration dlqConfiguration;
     private final String sourceProcessorId;
     private final Supplier<KDLQRedeliveryStorage> redeliveryStorageFactory;
-    private final KDLQMessageSender<K, V> messageSender;
+    private final KDLQMessageProducer<K, V> messageSender;
     
-    DefaultKDLQMessageRouter(
+    InternalKDLQMessageRouter(
             @Nonnull String sourceProcessorId,
             @Nonnull KDLQConfiguration dlqConfiguration,
-            @Nonnull KDLQMessageSender<K, V> messageSender,
-            @Nonnull Supplier<KDLQRedeliveryStorage> redeliveryStorageFactory
+            @Nonnull KDLQMessageProducer<K, V> messageSender,
+            @Nonnull Supplier<KDLQRedeliveryStorage> redeliveryStorageFactory,
+            @Nonnull KDLQHeadersService headersService
     ) {
         this.dlqConfiguration = dlqConfiguration;
         this.sourceProcessorId = sourceProcessorId;
         this.messageSender = messageSender;
-        this.headersService = new KDLQHeadersService();
+        this.headersService = headersService;
         this.redeliveryStorageFactory = redeliveryStorageFactory;
     }
 
@@ -212,5 +209,13 @@ final class DefaultKDLQMessageRouter<K, V> implements KDLQMessageRouter<K, V> {
 
     private int getNextCounterHeader(final Headers originalHeaders, final String header) {
         return this.headersService.getIntHeader(header, originalHeaders).orElse(0) + 1;
+    }
+
+    public record DefaultKDLQProducerRecord<K, V>(
+            @Nonnull String id,
+            @Nonnull ProducerRecord<K, V> record,
+            @Nonnull KDLQConfiguration configuration,
+            @Nonnegative long nextRedeliveryTimestamp
+    ) implements KDLQProducerRecord<K, V> {
     }
 }

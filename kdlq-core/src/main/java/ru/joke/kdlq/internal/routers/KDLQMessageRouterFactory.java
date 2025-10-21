@@ -4,7 +4,7 @@ import ru.joke.kdlq.KDLQConfiguration;
 
 import javax.annotation.Nonnull;
 
-public interface KDLQMessageRouterFactory {
+public sealed interface KDLQMessageRouterFactory permits InternalKDLQMessageRouterFactory {
 
     <K, V> KDLQMessageRouter<K, V> create(
             @Nonnull String id,

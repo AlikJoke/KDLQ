@@ -1,4 +1,4 @@
-package ru.joke.kdlq.internal.routers;
+package ru.joke.kdlq.internal.routers.producers;
 
 import javax.annotation.Nonnull;
 import java.util.Map;
@@ -6,25 +6,28 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
-public final class KDLQProducersRegistry {
+public final class InternalKDLQProducersRegistry implements KDLQProducersRegistry {
 
     private final Map<String, KDLQProducerSession<?, ?>> producersById = new ConcurrentHashMap<>();
 
+    @Override
     @Nonnull
-    <K, V> KDLQProducerSession<K, V> registerIfNeed(@Nonnull String producerSessionId, @Nonnull Supplier<KDLQProducerSession<K, V>> sessionSupplier) {
+    public <K, V> KDLQProducerSession<K, V> registerIfNeed(@Nonnull String producerSessionId, @Nonnull Supplier<KDLQProducerSession<K, V>> sessionSupplier) {
         @SuppressWarnings("unchecked")
         final var result = (KDLQProducerSession<K, V>) this.producersById.computeIfAbsent(producerSessionId, k -> sessionSupplier.get());
         return result;
     }
 
+    @Override
     @Nonnull
-    <K, V> Optional<KDLQProducerSession<K, V>> get(@Nonnull String producerSessionId) {
+    public <K, V> Optional<KDLQProducerSession<K, V>> get(@Nonnull String producerSessionId) {
         @SuppressWarnings("unchecked")
         final var result = (KDLQProducerSession<K, V>) this.producersById.get(producerSessionId);
         return Optional.ofNullable(result);
     }
 
-    void unregister(@Nonnull String producerSessionId) {
+    @Override
+    public void unregister(@Nonnull String producerSessionId) {
         this.producersById.remove(producerSessionId);
     }
 }

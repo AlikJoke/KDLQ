@@ -2,7 +2,7 @@ package ru.joke.kdlq.impl.internal;
 
 import org.junit.jupiter.api.Test;
 import ru.joke.kdlq.impl.internal.routers.KDLQProducerSession;
-import ru.joke.kdlq.internal.routers.KDLQProducersRegistry;
+import ru.joke.kdlq.internal.routers.producers.KDLQProducersRegistry;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;

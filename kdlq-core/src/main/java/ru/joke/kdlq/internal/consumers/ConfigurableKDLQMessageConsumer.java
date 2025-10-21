@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.joke.kdlq.*;
 import ru.joke.kdlq.internal.routers.KDLQMessageRouter;
+import ru.joke.kdlq.internal.util.Args;
 
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.ThreadSafe;
@@ -13,45 +14,6 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 
-/**
- * Default thread-safe implementation of the {@link KDLQMessageConsumer} that allows message
- * processing to be performed in accordance with the specified {@link KDLQConfiguration}
- * and the passed message processor {@link KDLQMessageProcessor}.<br>
- * Example of usage:<br>
- * <pre>
- *     {@code
- *         final var configuration = buildConfiguration();
- *         final var consumer = new ConfigurableKDLQMessageConsumer("test", configuration, message -> {
- *             if (!isMessageReadyToProcessing(message)) {
- *                 return ProcessingStatus.MUST_BE_REDELIVERED;
- *             }
- *             handleMessage(message);
- *             return ProcessingStatus.OK;
- *         });
- *
- *         final ConsumerRecords<String, byte[]> records = kafkaConsumer.poll(Duration.ofMillis(Long.MAX_VALUE));
- *         for (final ConsumerRecord<String, byte[]> record : records) {
- *             try {
- *                 final var status = consumer.accept(record);
- *                 logger.debug("Message {} processed with status {}", record, status);
- *             } catch (KDLQException ex) {
- *                 logger.error("Error while processing message", ex);
- *                 // rethrow or skip error
- *             }
- *         }
- *
- *         kafkaConsumer.commitSync();
- *     }
- * </pre>
- * This example does not contain correct error handling, rebalancing and working with commit offsets.
- *
- * @param <K> type of the message key
- * @param <V> type of the message body value
- * @author Alik
- * @see KDLQMessageConsumer
- * @see KDLQMessageProcessor
- * @see KDLQConfiguration
- */
 @ThreadSafe
 final class ConfigurableKDLQMessageConsumer<K, V> implements KDLQMessageConsumer<K, V> {
 
@@ -73,12 +35,12 @@ final class ConfigurableKDLQMessageConsumer<K, V> implements KDLQMessageConsumer
             @Nonnull KDLQMessageRouter<K, V> messageSender,
             @Nonnull Consumer<KDLQMessageConsumer<?, ?>> onCloseCallback
     ) {
-        this.id = Objects.requireNonNull(id, "id");
-        this.dlqConfiguration = Objects.requireNonNull(dlqConfiguration, "dlqConfiguration");
-        this.messageProcessor = Objects.requireNonNull(messageProcessor, "messageProcessor");
+        this.id = Args.requireNotEmpty(id, () -> new KDLQException("Provided consumer id must be not empty"));
+        this.dlqConfiguration = Args.requireNotNull(dlqConfiguration, () -> new KDLQException("Provided configuration must be not null"));
+        this.messageProcessor = Args.requireNotNull(messageProcessor, () -> new KDLQException("Provided message processor must be not null"));
         this.lock = new ReentrantReadWriteLock();
-        this.messageSender = Objects.requireNonNull(messageSender, "messageSender");
-        this.onCloseCallback = Objects.requireNonNull(onCloseCallback, "onCloseCallback");
+        this.messageSender = Args.requireNotNull(messageSender, () -> new KDLQException("Provided message sender must be not null"));
+        this.onCloseCallback = Args.requireNotNull(onCloseCallback, () -> new KDLQException("Provided callback must be not null"));
     }
 
     @Override

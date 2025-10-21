@@ -5,7 +5,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import javax.annotation.Nonnull;
 import java.io.Closeable;
 
-public sealed interface KDLQMessageRouter<K, V> extends Closeable permits DefaultKDLQMessageRouter {
+public sealed interface KDLQMessageRouter<K, V> extends Closeable permits InternalKDLQMessageRouter {
 
     RoutingStatus routeToRedelivery(@Nonnull ConsumerRecord<K, V> originalMessage);
 

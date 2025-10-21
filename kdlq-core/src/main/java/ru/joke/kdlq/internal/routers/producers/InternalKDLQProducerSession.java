@@ -1,4 +1,4 @@
-package ru.joke.kdlq.internal.routers;
+package ru.joke.kdlq.internal.routers.producers;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import ru.joke.kdlq.KDLQConfiguration;
 import ru.joke.kdlq.KDLQLifecycleException;
 
+import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.ThreadSafe;
 import java.time.Duration;
@@ -16,9 +17,9 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @ThreadSafe
-final class KDLQProducerSession<K, V> {
+public final class InternalKDLQProducerSession<K, V> implements KDLQProducerSession<K, V> {
 
-    private static final Logger logger = LoggerFactory.getLogger(KDLQProducerSession.class);
+    private static final Logger logger = LoggerFactory.getLogger(InternalKDLQProducerSession.class);
 
     private static final String KDLQ_ID = "KDLQ";
 
@@ -27,13 +28,16 @@ final class KDLQProducerSession<K, V> {
     private final AtomicInteger usages;
     private volatile boolean isClosed;
 
-    KDLQProducerSession(@Nonnull final String sessionId, @Nonnull final KafkaProducer<K, V> producer) {
+    InternalKDLQProducerSession(
+            @Nonnull final String sessionId,
+            @Nonnull final KafkaProducer<K, V> producer
+    ) {
         this.producer = producer;
         this.sessionId = sessionId;
         this.usages = new AtomicInteger(0);
     }
 
-    KDLQProducerSession(@Nonnull final KDLQConfiguration configuration) {
+    InternalKDLQProducerSession(@Nonnull final KDLQConfiguration configuration) {
         this(configuration.producerId(), new KafkaProducer<>(composePropertiesMap(configuration)));
     }
 
@@ -51,7 +55,11 @@ final class KDLQProducerSession<K, V> {
         return finalProperties;
     }
 
-    synchronized boolean close(final int timeoutSeconds, final Runnable onCloseCallback) {
+    @Override
+    public synchronized boolean close(
+            @Nonnegative final int timeoutSeconds,
+            @Nonnull final Runnable onCloseCallback
+    ) {
         if (this.isClosed) {
             throw new KDLQLifecycleException("Producer already closed");
         } else if (this.usages.decrementAndGet() > 0) {
@@ -70,7 +78,8 @@ final class KDLQProducerSession<K, V> {
         return true;
     }
 
-    synchronized boolean onUsage() {
+    @Override
+    public synchronized boolean onUsage() {
         if (this.isClosed) {
             return false;
         }
@@ -78,13 +87,15 @@ final class KDLQProducerSession<K, V> {
         return this.usages.incrementAndGet() > 0;
     }
 
+    @Override
     @Nonnull
-    String sessionId() {
+    public String sessionId() {
         return this.sessionId;
     }
 
+    @Override
     @Nonnull
-    Producer<K, V> producer() {
+    public Producer<K, V> producer() {
         return this.producer;
     }
 }

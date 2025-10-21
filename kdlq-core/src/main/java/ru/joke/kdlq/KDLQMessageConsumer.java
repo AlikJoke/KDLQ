@@ -6,7 +6,34 @@ import javax.annotation.Nonnull;
 
 /**
  * A message consumer that processes messages and resends messages when necessary or
- * sends them to the DLQ according to the specified KDLQ configuration.
+ * sends them to the DLQ according to the specified KDLQ configuration.<br>
+ * Example of usage:<br>
+ * <pre>
+ *     {@code
+ *         final var configuration = buildConfiguration();
+ *         final var consumer = KDLQ.registerConsumer("test", configuration, message -> {
+ *             if (!isMessageReadyToProcessing(message)) {
+ *                 return ProcessingStatus.MUST_BE_REDELIVERED;
+ *             }
+ *             handleMessage(message);
+ *             return ProcessingStatus.OK;
+ *         });
+ *
+ *         final ConsumerRecords<String, byte[]> records = kafkaConsumer.poll(Duration.ofMillis(Long.MAX_VALUE));
+ *         for (final ConsumerRecord<String, byte[]> record : records) {
+ *             try {
+ *                 final var status = consumer.accept(record);
+ *                 logger.debug("Message {} processed with status {}", record, status);
+ *             } catch (KDLQException ex) {
+ *                 logger.error("Error while processing message", ex);
+ *                 // rethrow or skip error
+ *             }
+ *         }
+ *
+ *         kafkaConsumer.commitSync();
+ *     }
+ * </pre>
+ * This example does not contain correct error handling, rebalancing and working with commit offsets.
  *
  * @param <K> type of the message key
  * @param <V> type of the message body value
