@@ -9,6 +9,7 @@ import javax.annotation.concurrent.Immutable;
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.annotation.concurrent.ThreadSafe;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Immutable implementation of the KDLQ configuration {@link KDLQConfiguration}.
@@ -458,13 +459,18 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
                             : this.redelivery;
             final var id = this.id == null ? UUID.randomUUID().toString() : this.id;
 
+            final Set<KDLQMessageLifecycleListener> listeners =
+                    this.lifecycleListeners.stream()
+                                            .map(SafeKDLQMessageLifecycleListenerDecorator::new)
+                                            .collect(Collectors.toSet());
+
             return new ImmutableKDLQConfiguration(
                     id,
                     bootstrapServers,
                     producerProperties,
                     dlq,
                     redelivery,
-                    this.lifecycleListeners,
+                    listeners,
                     this.addOptionalInformationalHeaders
             );
         }

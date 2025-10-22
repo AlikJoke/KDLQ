@@ -199,7 +199,6 @@ final class InternalKDLQMessageRouter<K, V> implements KDLQMessageRouter<K, V> {
         );
 
         return new DefaultKDLQProducerRecord<>(
-                UUID.randomUUID().toString(),
                 recordToRedelivery,
                 this.dlqConfiguration,
                 nextRedeliveryTimestamp
@@ -278,7 +277,6 @@ final class InternalKDLQMessageRouter<K, V> implements KDLQMessageRouter<K, V> {
     }
 
     public record DefaultKDLQProducerRecord<K, V>(
-            @Nonnull String id,
             @Nonnull ProducerRecord<K, V> record,
             @Nonnull KDLQConfiguration configuration,
             @Nonnegative long nextRedeliveryTimestamp
