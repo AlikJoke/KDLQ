@@ -5,7 +5,6 @@ import ru.joke.kdlq.spi.KDLQRedeliveryStorage;
 
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 /**
  * A KDLQ message that is scheduled for redelivery in the future. It includes the
@@ -18,14 +17,6 @@ import javax.annotation.Nullable;
  * @see KDLQRedeliveryStorage
  */
 public interface KDLQProducerRecord<K, V> {
-
-    /**
-     * Returns the id of the message.
-     *
-     * @return message id; cannot be {@code null} or empty.
-     */
-    @Nonnull
-    String id();
 
     /**
      * Returns the Kafka message to redelivery.
@@ -43,7 +34,6 @@ public interface KDLQProducerRecord<K, V> {
      *         will not be redelivered and will remain in the store.
      * @see KDLQConfiguration
      */
-    @Nullable
     KDLQConfiguration configuration();
 
     /**
@@ -53,4 +43,23 @@ public interface KDLQProducerRecord<K, V> {
      */
     @Nonnegative
     long nextRedeliveryTimestamp();
+
+    /**
+     * Identifiable KDLQ message to redelivery.
+     *
+     * @param <K> type of message key
+     * @param <V> type of message body
+     *
+     * @author Alik
+     */
+    interface Identifiable<K, V> extends KDLQProducerRecord<K, V> {
+
+        /**
+         * Returns the id of the message.
+         *
+         * @return message id; cannot be {@code null} or empty.
+         */
+        @Nonnull
+        String id();
+    }
 }

@@ -10,6 +10,8 @@
     </parent>
 
     <artifactId>kdlq-mongo</artifactId>
+    <name>Kafka DLQ MongoDB</name>
+    <description>Kafka DLQ MongoDB Module</description>
 
     <dependencies>
 

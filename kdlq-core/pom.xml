@@ -10,6 +10,8 @@
     </parent>
 
     <artifactId>kdlq-core</artifactId>
+    <name>Kafka DLQ Core</name>
+    <description>Kafka DLQ Core Module</description>
 
     <dependencies>
 

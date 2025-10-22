@@ -198,7 +198,7 @@ public sealed interface KDLQConfiguration permits ImmutableKDLQConfiguration {
          * @return the maximum delayed redelivery interval; cannot be {@code < 0}.
          */
         @Nonnegative
-        int maxRedeliveryDelay();
+        long maxRedeliveryDelay();
 
         /**
          * Returns a builder instance for more convenient construction of the redelivery object.

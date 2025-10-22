@@ -8,8 +8,8 @@
     <artifactId>kdlq</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
-    <name>Kafka DLQ Module</name>
-    <description>Kafka DLQ Module</description>
+    <name>Kafka DLQ Parent</name>
+    <description>Kafka DLQ Parent Module</description>
     <modules>
         <module>kdlq-core</module>
         <module>kdlq-mongo</module>

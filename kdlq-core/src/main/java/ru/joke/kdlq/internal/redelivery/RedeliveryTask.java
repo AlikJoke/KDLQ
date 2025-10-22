@@ -113,7 +113,7 @@ public final class RedeliveryTask implements Runnable, Closeable {
     private void redeliver(
             final Map<String, KDLQMessageProducer<byte[], byte[]>> senders,
             final Map<String, KDLQConfiguration> configs,
-            final KDLQProducerRecord<byte[], byte[]> record
+            final KDLQProducerRecord.Identifiable<byte[], byte[]> record
     ) {
         if (this.future.isCancelled()) {
             throw new KDLQException("Task was cancelled");

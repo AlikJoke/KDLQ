@@ -1,12 +1,15 @@
 package ru.joke.kdlq.internal.routers;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.header.Headers;
 import org.apache.kafka.common.header.internals.RecordHeaders;
+import org.apache.kafka.common.serialization.Serializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.joke.kdlq.KDLQConfiguration;
+import ru.joke.kdlq.KDLQConfigurationException;
 import ru.joke.kdlq.KDLQException;
 import ru.joke.kdlq.KDLQProducerRecord;
 import ru.joke.kdlq.internal.routers.headers.KDLQHeadersService;
@@ -15,12 +18,15 @@ import ru.joke.kdlq.spi.KDLQRedeliveryStorage;
 
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
+import javax.annotation.concurrent.ThreadSafe;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 
 import static ru.joke.kdlq.internal.routers.headers.KDLQHeaders.*;
 
+@ThreadSafe
 final class InternalKDLQMessageRouter<K, V> implements KDLQMessageRouter<K, V> {
 
     private static final Logger logger = LoggerFactory.getLogger(InternalKDLQMessageRouter.class);
@@ -32,6 +38,8 @@ final class InternalKDLQMessageRouter<K, V> implements KDLQMessageRouter<K, V> {
     private final String sourceProcessorId;
     private final Supplier<KDLQRedeliveryStorage> redeliveryStorageFactory;
     private final KDLQMessageProducer<K, V> messageSender;
+    private final Serializer<K> keySerializer;
+    private final Serializer<V> valueSerializer;
     
     InternalKDLQMessageRouter(
             @Nonnull String sourceProcessorId,
@@ -45,6 +53,8 @@ final class InternalKDLQMessageRouter<K, V> implements KDLQMessageRouter<K, V> {
         this.messageSender = messageSender;
         this.headersService = headersService;
         this.redeliveryStorageFactory = redeliveryStorageFactory;
+        this.keySerializer = createSerializer(dlqConfiguration, ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG);
+        this.valueSerializer = createSerializer(dlqConfiguration, ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG);
     }
 
     @Override
@@ -71,36 +81,8 @@ final class InternalKDLQMessageRouter<K, V> implements KDLQMessageRouter<K, V> {
         );
 
         if (this.dlqConfiguration.redelivery().redeliveryDelay() > 0) {
-            final var storage = this.redeliveryStorageFactory.get();
-            if (storage != null) {
-                final var recordToStore = createRecordToRedelivery(recordToRedelivery, redelivered);
-
-                try {
-                    storage.store(recordToStore);
-                } catch (RuntimeException ex) {
-                    logger.error("Unable to schedule message redelivery to " + targetQueue, ex);
-                    listeners.forEach(
-                            l -> l.onDeferredMessageRedeliverySchedulingError(
-                                    this.sourceProcessorId,
-                                    originalMessage,
-                                    recordToRedelivery,
-                                    ex
-                            )
-                    );
-
-                    throw new KDLQException(ex);
-                }
-
-                listeners.forEach(
-                        l -> l.onDeferredMessageRedeliverySchedulingSuccess(
-                                this.sourceProcessorId,
-                                originalMessage,
-                                recordToRedelivery
-                        )
-                );
-
-                return RoutingStatus.SCHEDULED_TO_REDELIVERY;
-            }
+            routeToRedeliveryStorage(originalMessage, recordToRedelivery, redelivered);
+            return RoutingStatus.SCHEDULED_TO_REDELIVERY;
         }
 
         try {
@@ -158,22 +140,104 @@ final class InternalKDLQMessageRouter<K, V> implements KDLQMessageRouter<K, V> {
         this.messageSender.close();
     }
 
+    private void routeToRedeliveryStorage(
+            final ConsumerRecord<K, V> originalMessage,
+            final ProducerRecord<K, V> recordToRedelivery,
+            final int redeliveryAttempt
+    ) {
+        final var listeners = this.dlqConfiguration.lifecycleListeners();
+        final var recordToStore = createRecordToRedelivery(recordToRedelivery, redeliveryAttempt);
+
+        try {
+            final var storage = this.redeliveryStorageFactory.get();
+            if (storage == null) {
+                throw new KDLQConfigurationException("Invalid configuration: redelivery delay was set but redelivery storage isn't configured");
+            }
+
+            storage.store(recordToStore);
+        } catch (RuntimeException ex) {
+            logger.error("Unable to save message for redelivery to storage", ex);
+            listeners.forEach(
+                    l -> l.onDeferredMessageRedeliverySchedulingError(
+                            this.sourceProcessorId,
+                            originalMessage,
+                            recordToRedelivery,
+                            ex
+                    )
+            );
+
+            throw new KDLQException(ex);
+        }
+
+        listeners.forEach(
+                l -> l.onDeferredMessageRedeliverySchedulingSuccess(
+                        this.sourceProcessorId,
+                        originalMessage,
+                        recordToRedelivery
+                )
+        );
+    }
+
     private KDLQProducerRecord<byte[], byte[]> createRecordToRedelivery(
             final ProducerRecord<K, V> record,
             final int redeliveryAttempt
     ) {
         final var redeliveryConfig = this.dlqConfiguration.redelivery();
-        final long redeliveryDelayMs = (long) (redeliveryConfig.redeliveryDelay() * Math.pow(redeliveryConfig.redeliveryDelayMultiplier(), redeliveryAttempt - 1));
-        final long nextRedeliveryTimestamp = System.currentTimeMillis() + redeliveryDelayMs;
+        final var currentRedeliveryDelay = (long) (redeliveryConfig.redeliveryDelay() * Math.pow(redeliveryConfig.redeliveryDelayMultiplier(), redeliveryAttempt - 1));
+        final long resultRedeliveryDelayMs = Math.min(redeliveryConfig.maxRedeliveryDelay(), currentRedeliveryDelay);
+        final long nextRedeliveryTimestamp = System.currentTimeMillis() + resultRedeliveryDelayMs;
 
-        // TODO record to redelivery
-        final ProducerRecord<byte[], byte[]> recordToRedelivery = null;
+        final var keyData = this.keySerializer.serialize(record.topic(), record.headers(), record.key());
+        final var valueData = this.valueSerializer.serialize(record.topic(), record.headers(), record.value());
+
+        final ProducerRecord<byte[], byte[]> recordToRedelivery = new ProducerRecord<>(
+                record.topic(),
+                null,
+                keyData,
+                valueData,
+                record.headers()
+        );
+
         return new DefaultKDLQProducerRecord<>(
                 UUID.randomUUID().toString(),
                 recordToRedelivery,
                 this.dlqConfiguration,
                 nextRedeliveryTimestamp
         );
+    }
+
+    private static <T> Serializer<T> createSerializer(
+            final KDLQConfiguration dlqConfiguration,
+            final String configId
+    ) {
+        final var serializerConfig = dlqConfiguration.producerProperties().get(configId);
+        if (serializerConfig == null) {
+            throw new KDLQException("Serializer property " + configId + " not found in producer properties");
+        }
+
+        final String serializerClassName;
+        if (serializerConfig instanceof Class<?> serializerClass) {
+            serializerClassName = serializerClass.getName();
+        } else if (serializerConfig instanceof String serializerName) {
+            serializerClassName = serializerName;
+        } else {
+            throw new KDLQException("Invalid serializer class value type for %s: %s".formatted(configId, serializerConfig.getClass().getName()));
+        }
+
+        try {
+            final var serializerClass = Class.forName(serializerClassName, true, ProducerRecord.class.getClassLoader());
+            if (!Serializer.class.isAssignableFrom(serializerClass)) {
+                throw new KDLQException("Class " + serializerClassName + " does not implement " + Serializer.class.getName());
+            }
+
+            @SuppressWarnings("unchecked")
+            final var serializer = (Serializer<T>) serializerClass.getDeclaredConstructor().newInstance();
+            serializer.configure(dlqConfiguration.producerProperties(), configId.equals(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG));
+
+            return serializer;
+        } catch (ClassNotFoundException | NoSuchMethodException | InstantiationException | IllegalAccessException | InvocationTargetException ex) {
+            throw new KDLQException(ex);
+        }
     }
 
     private ProducerRecord<K, V> createRecord(

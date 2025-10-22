@@ -100,7 +100,7 @@ public record ImmutableKDLQGlobalConfiguration(
          * @see KDLQGlobalConfiguration#redeliveryTaskDelay()
          */
         @Nonnull
-        public Builder withRedeliveryTaskDelay(final long redeliveryTaskDelay) {
+        public Builder withRedeliveryTaskDelay(@Nonnegative final long redeliveryTaskDelay) {
             this.redeliveryTaskDelay = redeliveryTaskDelay;
             return this;
         }

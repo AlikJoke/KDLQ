@@ -13,9 +13,21 @@ import ru.joke.kdlq.internal.util.Args;
 import ru.joke.kdlq.mongo.internal.KDLQMongoGlobalDistributedLockService;
 import ru.joke.kdlq.mongo.internal.KDLQRedeliveryMongoStorage;
 
+import javax.annotation.Nonnegative;
+import javax.annotation.Nonnull;
+import javax.annotation.concurrent.NotThreadSafe;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
+/**
+ * KDLQ Global Configuration Builder for MongoDB-backed redelivery message storage.
+ *
+ * @author Alik
+ * @see KDLQGlobalConfiguration
+ * @see ru.joke.kdlq.spi.KDLQRedeliveryStorage
+ * @see ru.joke.kdlq.spi.KDLQGlobalDistributedLockService
+ */
+@NotThreadSafe
 public final class KDLQMongoGlobalConfigurationBuilder {
 
     private static final String DEFAULT_LOCKS_COLLECTION_NAME = "distributed_locks";
@@ -24,44 +36,101 @@ public final class KDLQMongoGlobalConfigurationBuilder {
     private ScheduledExecutorService lockingPool;
     private ScheduledExecutorService redeliveryPool;
     private long redeliveryTaskDelay = 1_000;
-    private MongoClient mongoClient;
-    private String databaseName;
     private String distributedLocksCollectionName;
     private String redeliveryQueueCollectionName;
 
+    /**
+     * Sets the thread pool for running the message redelivery task.
+     *
+     * @param redeliveryPool redelivery pool; if pool is not provided, a single-threaded
+     *                       pool managed by KDLQ will be created.
+     * @return the current builder object for further construction; cannot be {@code null}.
+     * @see KDLQGlobalConfiguration#redeliveryPool()
+     */
+    @Nonnull
     public KDLQMongoGlobalConfigurationBuilder withRedeliveryPool(ScheduledExecutorService redeliveryPool) {
         this.redeliveryPool = redeliveryPool;
         return this;
     }
 
+    /**
+     * Sets the thread pool for the global lock synchronization task, which enables
+     * the message redelivery task to function within a distributed system.
+     *
+     * @param lockingPool locking pool; if pool is not provided, a single-threaded
+     *                    pool managed by KDLQ will be created.
+     * @return the current builder object for further construction; cannot be {@code null}.
+     * @see ru.joke.kdlq.spi.KDLQGlobalDistributedLockService
+     */
+    @Nonnull
     public KDLQMongoGlobalConfigurationBuilder withLockingPool(ScheduledExecutorService lockingPool) {
         this.lockingPool = lockingPool;
         return this;
     }
 
-    public KDLQMongoGlobalConfigurationBuilder withRedeliveryTaskDelay(long redeliveryTaskDelay) {
+    /**
+     * Sets the delay in milliseconds for the message redelivery task.
+     *
+     * @param redeliveryTaskDelay task delay in milliseconds; if delay is not provided,
+     *                            a default value will be applied (1s).
+     * @return the current builder object for further construction; cannot be {@code null}.
+     * @see KDLQGlobalConfiguration#redeliveryTaskDelay()
+     */
+    @Nonnull
+    public KDLQMongoGlobalConfigurationBuilder withRedeliveryTaskDelay(@Nonnegative long redeliveryTaskDelay) {
         this.redeliveryTaskDelay = redeliveryTaskDelay;
         return this;
     }
 
-    public KDLQMongoGlobalConfigurationBuilder withMongoClient(MongoClient mongoClient) {
-        this.mongoClient = mongoClient;
-        return this;
-    }
-
+    /**
+     * Sets the name of the collection that will store global distributed lock
+     * information for determining which server will execute the message redelivery task.
+     *
+     * @param distributedLocksCollectionName collection to store global distributed lock;
+     *                                       if collection name is not provided, a default
+     *                                       value will be applied: 'distributed_locks'.
+     * @return the current builder object for further construction; cannot be {@code null}.
+     * @see ru.joke.kdlq.spi.KDLQGlobalDistributedLockService
+     */
+    @Nonnull
     public KDLQMongoGlobalConfigurationBuilder withDistributedLocksCollection(String distributedLocksCollectionName) {
         this.distributedLocksCollectionName = distributedLocksCollectionName;
         return this;
     }
 
+    /**
+     * Sets the name of the collection where information about messages to be
+     * redelivered will be stored.
+     *
+     * @param redeliveryQueueCollectionName collection to store messages to be redelivered;
+     *                                      if collection name is not provided, a default
+     *                                      value will be applied: 'redelivery_queue'.
+     * @return the current builder object for further construction; cannot be {@code null}.
+     * @see ru.joke.kdlq.spi.KDLQRedeliveryStorage
+     */
+    @Nonnull
     public KDLQMongoGlobalConfigurationBuilder withRedeliveryQueueCollection(String redeliveryQueueCollectionName) {
         this.redeliveryQueueCollectionName = redeliveryQueueCollectionName;
         return this;
     }
 
-    public KDLQGlobalConfiguration build() {
-        final var mongoClient = Args.requireNotNull(this.mongoClient, () -> new KDLQConfigurationException("MongoClient must be provided"));
-        final var databaseName = Args.requireNotEmpty(this.databaseName, () -> new KDLQConfigurationException("Database must be not empty"));
+    /**
+     * Creates a global configuration object with the specified parameters.<br>
+     * Mandatory parameters are passed as arguments to this method; others are optional,
+     * and if not explicitly set in the builder, default values will be used.
+     *
+     * @param mongoClient  client to MongoDB; cannot be {@code null}.
+     * @param databaseName name of the database where collections containing data
+     *                     required for KDLQ operation will be located; cannot be {@code null}.
+     * @return created configuration object; cannot be {@code null}.
+     */
+    @Nonnull
+    public KDLQGlobalConfiguration build(
+            @Nonnull MongoClient mongoClient,
+            @Nonnull String databaseName
+    ) {
+        Args.requireNotNull(mongoClient, () -> new KDLQConfigurationException("MongoClient must be provided"));
+        Args.requireNotEmpty(databaseName, () -> new KDLQConfigurationException("Database must be not empty"));
         final var db = mongoClient.getDatabase(databaseName);
 
         final String locksCollectionName =
@@ -90,6 +159,12 @@ public final class KDLQMongoGlobalConfigurationBuilder {
                                                .build(distributedLockService, redeliveryStorage);
     }
 
+    /**
+     * Returns a builder instance for more convenient construction of the configuration object.
+     *
+     * @return builder instance; cannot be {@code null}.
+     */
+    @Nonnull
     public static KDLQMongoGlobalConfigurationBuilder create() {
         return new KDLQMongoGlobalConfigurationBuilder();
     }

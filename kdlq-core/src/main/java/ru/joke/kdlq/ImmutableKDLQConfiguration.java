@@ -149,7 +149,7 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
             int maxRedeliveryAttemptsBeforeKill,
             double redeliveryDelayMultiplier,
             @Nonnegative int redeliveryDelay,
-            @Nonnegative int maxRedeliveryDelay
+            @Nonnegative long maxRedeliveryDelay
     ) implements KDLQConfiguration.Redelivery {
 
         public Redelivery {

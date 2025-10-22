@@ -65,7 +65,7 @@ public interface KDLQRedeliveryStorage {
      * @return all messages ready for redelivery; cannot be {@code null}.
      */
     @Nonnull
-    List<KDLQProducerRecord<byte[], byte[]>> findAllReadyToRedelivery(
+    List<KDLQProducerRecord.Identifiable<byte[], byte[]>> findAllReadyToRedelivery(
             @Nonnull Function<String, KDLQConfiguration> configurationFactory,
             @Nonnegative long redeliveryTimestamp
     );
