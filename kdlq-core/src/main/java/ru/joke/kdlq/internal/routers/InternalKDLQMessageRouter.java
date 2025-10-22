@@ -21,7 +21,7 @@ import java.util.function.Supplier;
 
 import static ru.joke.kdlq.internal.routers.headers.KDLQHeaders.*;
 
-public final class InternalKDLQMessageRouter<K, V> implements KDLQMessageRouter<K, V> {
+final class InternalKDLQMessageRouter<K, V> implements KDLQMessageRouter<K, V> {
 
     private static final Logger logger = LoggerFactory.getLogger(InternalKDLQMessageRouter.class);
 
@@ -48,6 +48,7 @@ public final class InternalKDLQMessageRouter<K, V> implements KDLQMessageRouter<
     }
 
     @Override
+    @Nonnull
     public RoutingStatus routeToRedelivery(@Nonnull ConsumerRecord<K, V> originalMessage) {
 
         final var listeners = this.dlqConfiguration.lifecycleListeners();
@@ -117,6 +118,7 @@ public final class InternalKDLQMessageRouter<K, V> implements KDLQMessageRouter<
     }
 
     @Override
+    @Nonnull
     public RoutingStatus routeToDLQ(@Nonnull ConsumerRecord<K, V> originalMessage) {
 
         final var listeners = this.dlqConfiguration.lifecycleListeners();

@@ -6,8 +6,11 @@ import org.slf4j.LoggerFactory;
 import ru.joke.kdlq.KDLQConfiguration;
 import ru.joke.kdlq.KDLQException;
 
+import javax.annotation.Nonnull;
+import javax.annotation.concurrent.ThreadSafe;
 import java.util.concurrent.TimeUnit;
 
+@ThreadSafe
 final class InternalKDLQMessageProducer<K, V> implements KDLQMessageProducer<K, V> {
 
     private static final Logger logger = LoggerFactory.getLogger(InternalKDLQMessageProducer.class);
@@ -18,15 +21,15 @@ final class InternalKDLQMessageProducer<K, V> implements KDLQMessageProducer<K, 
     private final KDLQConfiguration configuration;
 
     InternalKDLQMessageProducer(
-            final KDLQProducersRegistry producersRegistry,
-            final KDLQConfiguration configuration
+            @Nonnull final KDLQProducersRegistry producersRegistry,
+            @Nonnull final KDLQConfiguration configuration
     ) {
         this.producersRegistry = producersRegistry;
         this.configuration = configuration;
     }
 
     @Override
-    public void send(ProducerRecord<K, V> record) throws Exception {
+    public void send(@Nonnull ProducerRecord<K, V> record) throws Exception {
         final var producerSession = createProducerSession();
         producerSession.producer().send(record, (recordMetadata, e) -> {
             if (e != null) {

@@ -17,7 +17,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @ThreadSafe
-public final class InternalKDLQProducerSession<K, V> implements KDLQProducerSession<K, V> {
+final class InternalKDLQProducerSession<K, V> implements KDLQProducerSession<K, V> {
 
     private static final Logger logger = LoggerFactory.getLogger(InternalKDLQProducerSession.class);
 

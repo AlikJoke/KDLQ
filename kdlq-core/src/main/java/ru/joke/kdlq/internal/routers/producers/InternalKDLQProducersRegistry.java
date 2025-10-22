@@ -1,11 +1,20 @@
 package ru.joke.kdlq.internal.routers.producers;
 
 import javax.annotation.Nonnull;
+import javax.annotation.concurrent.ThreadSafe;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
+/**
+ * Implementation of KDLQ producers registry based on {@link ConcurrentHashMap}.
+ *
+ * @author Alik
+ * @see KDLQProducersRegistry
+ * @see KDLQProducerSession
+ */
+@ThreadSafe
 public final class InternalKDLQProducersRegistry implements KDLQProducersRegistry {
 
     private final Map<String, KDLQProducerSession<?, ?>> producersById = new ConcurrentHashMap<>();
