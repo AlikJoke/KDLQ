@@ -6,6 +6,7 @@ import org.apache.kafka.common.header.internals.RecordHeader;
 
 import javax.annotation.Nonnull;
 import java.nio.charset.StandardCharsets;
+import java.util.Optional;
 import java.util.OptionalInt;
 
 /**
@@ -63,6 +64,25 @@ public final class KDLQHeadersService {
     public OptionalInt getIntHeader(@Nonnull final String headerName, @Nonnull final Headers headers) {
         final var header = headers.lastHeader(headerName);
         return getIntHeader(header);
+    }
+
+    /**
+     * Extracts a string value from the header with the specified name within the provided headers.
+     *
+     * @param headerName provided header name; cannot be {@code null} or empty.
+     * @param headers    provided headers; cannot be {@code null}.
+     * @return string value wrapped in {@link Optional}; cannot be {@code null}.
+     */
+    @Nonnull
+    public Optional<String> getStringHeader(@Nonnull final String headerName, @Nonnull final Headers headers) {
+        final var header = headers.lastHeader(headerName);
+        if (header == null) {
+            return Optional.empty();
+        }
+
+        final var headerBytes = header.value();
+        final var headerValue = new String(headerBytes, StandardCharsets.UTF_8);
+        return Optional.of(headerValue);
     }
 
     /**

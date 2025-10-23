@@ -5,6 +5,7 @@ import ru.joke.kdlq.spi.KDLQRedeliveryStorage;
 
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 /**
@@ -17,25 +18,38 @@ import java.util.concurrent.ScheduledExecutorService;
 public sealed interface KDLQGlobalConfiguration permits ImmutableKDLQGlobalConfiguration {
 
     /**
-     * Returns the thread pool that should be used for redelivering messages if delayed
+     * Returns the thread pool that should be used to dispatch redelivering messages if delayed
      * redelivery settings are present. The library will only use a single thread from
-     * this pool for redelivery, therefore a single-threaded pool is sufficient.<br>
+     * this pool for redelivery dispatching, therefore a single-threaded pool is sufficient.<br>
      * If the thread pool instance is provided externally rather than being created by
      * the KDLQ library, the responsibility for closing this pool lies with the client
      * module using KDLQ.
      *
-     * @return redelivery thread pool; cannot be {@code null}.
+     * @return dispatcher thread pool; cannot be {@code null}.
      */
     @Nonnull
-    ScheduledExecutorService redeliveryPool();
+    ScheduledExecutorService redeliveryDispatcherPool();
 
     /**
-     * Returns the frequency, in milliseconds, at which the message redelivery task should operate.
+     * Returns the thread pool that should be used for redelivering messages if delayed
+     * redelivery settings are present. The pool should support work stealing to ensure
+     * the fastest and most efficient task delivery.<br>
+     * If the thread pool instance is provided externally rather than being created by
+     * the KDLQ library, the responsibility for closing this pool lies with the client
+     * module using KDLQ.
      *
-     * @return redelivery task frequency; cannot be {@code <= 0}.
+     * @return message redelivery thread pool; cannot be {@code null}.
+     */
+    @Nonnull
+    ExecutorService redeliveryPool();
+
+    /**
+     * Returns the frequency, in milliseconds, at which the message redelivery dispatcher task should operate.
+     *
+     * @return redelivery dispatcher task frequency; cannot be {@code <= 0}.
      */
     @Nonnegative
-    long redeliveryTaskDelay();
+    long redeliveryDispatcherTaskDelay();
 
     /**
      * Returns the distributed locking service used by the message redelivery task to

@@ -16,6 +16,7 @@ import ru.joke.kdlq.mongo.internal.KDLQRedeliveryMongoStorage;
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.NotThreadSafe;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -34,21 +35,36 @@ public final class KDLQMongoGlobalConfigurationBuilder {
     private static final String DEFAULT_REDELIVERY_COLLECTION_NAME = "redelivery_queue";
 
     private ScheduledExecutorService lockingPool;
-    private ScheduledExecutorService redeliveryPool;
-    private long redeliveryTaskDelay = 1_000;
+    private ScheduledExecutorService redeliveryDispatcherPool;
+    private ExecutorService redeliveryPool;
+    private long redeliveryDispatcherTaskDelay = 1_000;
     private String distributedLocksCollectionName;
     private String redeliveryQueueCollectionName;
 
     /**
-     * Sets the thread pool for running the message redelivery task.
+     * Sets the thread pool for running dispatcher of the message redelivery tasks.
      *
-     * @param redeliveryPool redelivery pool; if pool is not provided, a single-threaded
+     * @param redeliveryDispatcherPool redelivery dispatcher pool; if pool is not provided, a single-threaded
+     *                                 pool managed by KDLQ will be created.
+     * @return the current builder object for further construction; cannot be {@code null}.
+     * @see KDLQGlobalConfiguration#redeliveryDispatcherPool()
+     */
+    @Nonnull
+    public KDLQMongoGlobalConfigurationBuilder withRedeliveryDispatcherPool(ScheduledExecutorService redeliveryDispatcherPool) {
+        this.redeliveryDispatcherPool = redeliveryDispatcherPool;
+        return this;
+    }
+
+    /**
+     * Sets the thread pool for running the message redelivery tasks.
+     *
+     * @param redeliveryPool redelivery pool; if pool is not provided, a {@link Executors#newWorkStealingPool()}
      *                       pool managed by KDLQ will be created.
      * @return the current builder object for further construction; cannot be {@code null}.
      * @see KDLQGlobalConfiguration#redeliveryPool()
      */
     @Nonnull
-    public KDLQMongoGlobalConfigurationBuilder withRedeliveryPool(ScheduledExecutorService redeliveryPool) {
+    public KDLQMongoGlobalConfigurationBuilder withRedeliveryPool(ExecutorService redeliveryPool) {
         this.redeliveryPool = redeliveryPool;
         return this;
     }
@@ -71,14 +87,14 @@ public final class KDLQMongoGlobalConfigurationBuilder {
     /**
      * Sets the delay in milliseconds for the message redelivery task.
      *
-     * @param redeliveryTaskDelay task delay in milliseconds; if delay is not provided,
+     * @param redeliveryDispatcherTaskDelay task delay in milliseconds; if delay is not provided,
      *                            a default value will be applied (1s).
      * @return the current builder object for further construction; cannot be {@code null}.
-     * @see KDLQGlobalConfiguration#redeliveryTaskDelay()
+     * @see KDLQGlobalConfiguration#redeliveryDispatcherTaskDelay()
      */
     @Nonnull
-    public KDLQMongoGlobalConfigurationBuilder withRedeliveryTaskDelay(@Nonnegative long redeliveryTaskDelay) {
-        this.redeliveryTaskDelay = redeliveryTaskDelay;
+    public KDLQMongoGlobalConfigurationBuilder withRedeliveryDispatcherTaskDelay(@Nonnegative long redeliveryDispatcherTaskDelay) {
+        this.redeliveryDispatcherTaskDelay = redeliveryDispatcherTaskDelay;
         return this;
     }
 
@@ -154,8 +170,9 @@ public final class KDLQMongoGlobalConfigurationBuilder {
         final var redeliveryStorage = new KDLQRedeliveryMongoStorage(redeliveryCollection);
 
         return ImmutableKDLQGlobalConfiguration.builder()
-                                                    .withRedeliveryTaskDelay(this.redeliveryTaskDelay)
-                                                    .withRedeliveryPool(redeliveryPool)
+                                                    .withRedeliveryDispatcherTaskDelay(this.redeliveryDispatcherTaskDelay)
+                                                    .withRedeliveryDispatcherPool(this.redeliveryDispatcherPool)
+                                                    .withRedeliveryPool(this.redeliveryPool)
                                                .build(distributedLockService, redeliveryStorage);
     }
 

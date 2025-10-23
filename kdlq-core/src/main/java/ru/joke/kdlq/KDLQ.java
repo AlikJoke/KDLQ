@@ -8,6 +8,7 @@ import ru.joke.kdlq.internal.consumers.ConfigurableKDLQMessageConsumerFactory;
 import ru.joke.kdlq.internal.consumers.KDLQMessageConsumerFactory;
 import ru.joke.kdlq.internal.redelivery.RedeliveryTask;
 import ru.joke.kdlq.internal.routers.InternalKDLQMessageRouterFactory;
+import ru.joke.kdlq.internal.routers.headers.KDLQHeaders;
 import ru.joke.kdlq.internal.routers.headers.KDLQHeadersService;
 import ru.joke.kdlq.internal.routers.producers.InternalKDLQMessageProducerFactory;
 import ru.joke.kdlq.internal.routers.producers.InternalKDLQProducersRegistry;
@@ -43,6 +44,7 @@ public final class KDLQ {
     private final KDLQMessageConsumerFactory messageConsumerFactory;
     private final RedeliveryStorageHolder redeliveryStorageHolder;
     private final InternalKDLQMessageProducerFactory messageSenderFactory;
+    private final KDLQHeadersService headersService;
     private volatile boolean initialized;
     private volatile RedeliveryTask redeliveryTask;
 
@@ -52,10 +54,11 @@ public final class KDLQ {
         this.messageSenderFactory = new InternalKDLQMessageProducerFactory(producersRegistry);
         this.redeliveryStorageHolder = new RedeliveryStorageHolder();
         this.configurationRegistry = new InternalKDLQConfigurationRegistry();
+        this.headersService = new KDLQHeadersService();
         final var routerFactory = new InternalKDLQMessageRouterFactory(
                 this.messageSenderFactory,
                 () -> this.redeliveryStorageHolder.storage,
-                new KDLQHeadersService()
+                this.headersService
         );
         this.messageConsumerFactory = new ConfigurableKDLQMessageConsumerFactory(
                 this.configurationRegistry,
@@ -97,13 +100,14 @@ public final class KDLQ {
             instance.redeliveryTask = new RedeliveryTask(
                     globalConfiguration,
                     instance.configurationRegistry,
-                    instance.messageSenderFactory
+                    instance.messageSenderFactory,
+                    instance.headersService
             );
 
-            final var redeliveryPool = globalConfiguration.redeliveryPool();
-            redeliveryPool.schedule(
+            final var redeliveryDispatcherPool = globalConfiguration.redeliveryDispatcherPool();
+            redeliveryDispatcherPool.schedule(
                     instance.redeliveryTask,
-                    globalConfiguration.redeliveryTaskDelay(),
+                    globalConfiguration.redeliveryDispatcherTaskDelay(),
                     TimeUnit.MILLISECONDS
             );
 

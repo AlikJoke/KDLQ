@@ -10,18 +10,19 @@ import ru.joke.kdlq.KDLQException;
 import ru.joke.kdlq.KDLQGlobalConfiguration;
 import ru.joke.kdlq.KDLQProducerRecord;
 import ru.joke.kdlq.internal.configs.KDLQConfigurationRegistry;
+import ru.joke.kdlq.internal.routers.headers.KDLQHeaders;
+import ru.joke.kdlq.internal.routers.headers.KDLQHeadersService;
 import ru.joke.kdlq.internal.routers.producers.KDLQMessageProducer;
 import ru.joke.kdlq.internal.routers.producers.KDLQMessageProducerFactory;
 
 import javax.annotation.Nonnull;
 import java.io.Closeable;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
+import static ru.joke.kdlq.internal.routers.headers.KDLQHeaders.MESSAGE_PARTITION_HEADER;
 import static ru.joke.kdlq.internal.routers.headers.KDLQHeaders.MESSAGE_PRC_MARKER_HEADER;
 
 /**
@@ -38,11 +39,14 @@ public final class RedeliveryTask implements Runnable, Closeable {
 
     private static final Logger logger = LoggerFactory.getLogger(RedeliveryTask.class);
     private static final String REDELIVERY_PROCESSOR = "KDLQ_Redelivery";
+    private static final int BATCH_SIZE = 2_000;
 
     private final KDLQGlobalConfiguration globalConfiguration;
     private final KDLQConfigurationRegistry configurationRegistry;
     private final KDLQMessageProducerFactory senderFactory;
-    private volatile Future<?> future;
+    private final KDLQHeadersService headersService;
+    private volatile Future<?> dispatcherFuture;
+    private volatile List<Future<?>> redeliveryFutures;
 
     /**
      * Constructs the redelivery task.
@@ -50,15 +54,18 @@ public final class RedeliveryTask implements Runnable, Closeable {
      * @param globalConfiguration   KDLQ global configuration; cannot be {@code null}.
      * @param configurationRegistry configuration registry; cannot be {@code null}.
      * @param senderFactory         factory of the message senders; cannot be {@code null}.
+     * @param headersService        KDLQ message headers service; cannot be {@code null}.
      */
     public RedeliveryTask(
             @Nonnull final KDLQGlobalConfiguration globalConfiguration,
             @Nonnull final KDLQConfigurationRegistry configurationRegistry,
-            @Nonnull final KDLQMessageProducerFactory senderFactory
+            @Nonnull final KDLQMessageProducerFactory senderFactory,
+            @Nonnull final KDLQHeadersService headersService
     ) {
         this.globalConfiguration = globalConfiguration;
         this.configurationRegistry = configurationRegistry;
         this.senderFactory = senderFactory;
+        this.headersService = headersService;
     }
 
     @Override
@@ -72,7 +79,7 @@ public final class RedeliveryTask implements Runnable, Closeable {
         try {
             redeliver();
         } catch (RuntimeException ex) {
-            if (this.future.isCancelled()) {
+            if (this.dispatcherFuture.isCancelled()) {
                 return;
             }
 
@@ -85,10 +92,10 @@ public final class RedeliveryTask implements Runnable, Closeable {
     }
 
     private void scheduleNextRedelivery() {
-        final var redeliveryPool = this.globalConfiguration.redeliveryPool();
-        this.future = redeliveryPool.schedule(
+        final var redeliveryDispatcherPool = this.globalConfiguration.redeliveryDispatcherPool();
+        this.dispatcherFuture = redeliveryDispatcherPool.schedule(
                 this,
-                this.globalConfiguration.redeliveryTaskDelay(),
+                this.globalConfiguration.redeliveryDispatcherTaskDelay(),
                 TimeUnit.MILLISECONDS
         );
     }
@@ -99,11 +106,67 @@ public final class RedeliveryTask implements Runnable, Closeable {
 
         final var storage = this.globalConfiguration.redeliveryStorage();
         try {
-            storage.findAllReadyToRedelivery(this::findConfigById, System.currentTimeMillis())
-                    .forEach(record -> redeliver(senders, redeliveryConfigs, record));
+            List<KDLQProducerRecord.Identifiable<byte[], byte[]>> batch = null;
+            do {
+                batch = storage.findAllReadyToRedelivery(this::findConfigById, System.currentTimeMillis(), BATCH_SIZE);
+                redeliver(batch, redeliveryConfigs, senders);
+            } while (!this.dispatcherFuture.isCancelled() && !batch.isEmpty());
         } finally {
             senders.values().forEach(KDLQMessageProducer::close);
         }
+    }
+
+    private void redeliver(
+            final List<KDLQProducerRecord.Identifiable<byte[], byte[]>> messages,
+            final Map<String, KDLQConfiguration> redeliveryConfigs,
+            final Map<String, KDLQMessageProducer<byte[], byte[]>> senders
+    ) {
+        final var dividedMessages = divide(messages);
+
+        this.redeliveryFutures =
+                dividedMessages
+                        .stream()
+                        .map(messagesPart -> createRedeliveryTask(messagesPart, redeliveryConfigs, senders))
+                        .map(this.globalConfiguration.redeliveryPool()::submit)
+                        .collect(Collectors.toList());
+
+        this.redeliveryFutures.forEach(this::await);
+    }
+
+    private void await(final Future<?> future) {
+        if (future.isCancelled()) {
+            return;
+        }
+
+        try {
+            future.get(1, TimeUnit.MINUTES);
+        } catch (ExecutionException | TimeoutException e) {
+            logger.error("", e);
+        } catch (InterruptedException e) {
+            logger.debug("Redelivery task thread was interrupted");
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private Runnable createRedeliveryTask(
+            final List<KDLQProducerRecord.Identifiable<byte[], byte[]>> messages,
+            final Map<String, KDLQConfiguration> redeliveryConfigs,
+            final Map<String, KDLQMessageProducer<byte[], byte[]>> senders
+    ) {
+        return () -> messages.forEach(record -> redeliver(senders, redeliveryConfigs, record));
+    }
+
+    private Collection<List<KDLQProducerRecord.Identifiable<byte[], byte[]>>> divide(final List<KDLQProducerRecord.Identifiable<byte[], byte[]>> messages) {
+        final Map<String, List<KDLQProducerRecord.Identifiable<byte[], byte[]>>> messagesByKey = new HashMap<>();
+        messages.forEach(m -> {
+            final var topic = m.record().topic();
+            final var partition = this.headersService.getIntHeader(MESSAGE_PARTITION_HEADER, m.record().headers()).orElse(0);
+
+            final var key = topic + "%" + partition;
+            messagesByKey.computeIfAbsent(key, k -> new ArrayList<>()).add(m);
+        });
+
+        return messagesByKey.values();
     }
 
     private KDLQConfiguration findConfigById(final String configId) {
@@ -115,7 +178,7 @@ public final class RedeliveryTask implements Runnable, Closeable {
             final Map<String, KDLQConfiguration> configs,
             final KDLQProducerRecord.Identifiable<byte[], byte[]> record
     ) {
-        if (this.future.isCancelled()) {
+        if (this.dispatcherFuture.isCancelled()) {
             throw new KDLQException("Task was cancelled");
         }
 
@@ -141,7 +204,7 @@ public final class RedeliveryTask implements Runnable, Closeable {
         try {
             sender.send(record.record());
         } catch (Exception ex) {
-            if (this.future.isCancelled()) {
+            if (this.dispatcherFuture.isCancelled()) {
                 return;
             }
 
@@ -170,13 +233,7 @@ public final class RedeliveryTask implements Runnable, Closeable {
     }
 
     private String extractProcessorId(final ProducerRecord<byte[], byte[]> record) {
-        final var header = record.headers().lastHeader(MESSAGE_PRC_MARKER_HEADER);
-        if (header == null) {
-            return REDELIVERY_PROCESSOR;
-        }
-
-        final var headerBytes = header.value();
-        return new String(headerBytes, StandardCharsets.UTF_8);
+        return this.headersService.getStringHeader(MESSAGE_PRC_MARKER_HEADER, record.headers()).orElse(REDELIVERY_PROCESSOR);
     }
 
     private KDLQConfiguration buildRedeliveryConfiguration(final KDLQConfiguration original) {
@@ -193,6 +250,12 @@ public final class RedeliveryTask implements Runnable, Closeable {
 
     @Override
     public void close() {
-        this.future.cancel(true);
+        if (this.dispatcherFuture != null) {
+            this.dispatcherFuture.cancel(true);
+        }
+
+        if (this.redeliveryFutures != null) {
+            this.redeliveryFutures.forEach(f -> f.cancel(true));
+        }
     }
 }

@@ -4,6 +4,7 @@ import com.mongodb.MongoWriteException;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.IndexOptions;
+import com.mongodb.client.model.Sorts;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.header.internals.RecordHeader;
@@ -96,10 +97,13 @@ public final class KDLQRedeliveryMongoStorage implements KDLQRedeliveryStorage {
     @Override
     public List<KDLQProducerRecord.Identifiable<byte[], byte[]>> findAllReadyToRedelivery(
             @Nonnull final Function<String, KDLQConfiguration> configurationLoader,
-            @Nonnegative final long timestamp
+            @Nonnegative final long timestamp,
+            @Nonnegative final int limit
     ) {
         final var result = this.collection.find(Filters.lte(REDELIVERY_TIMESTAMP_FIELD, timestamp));
         return result
+                .limit(limit)
+                .sort(Sorts.ascending(REDELIVERY_TIMESTAMP_FIELD))
                 .map(d -> mapDocumentToRecord(d, configurationLoader))
                 .into(new ArrayList<>());
     }

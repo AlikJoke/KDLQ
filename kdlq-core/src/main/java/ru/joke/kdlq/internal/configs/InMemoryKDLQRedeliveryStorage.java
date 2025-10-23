@@ -8,6 +8,7 @@ import ru.joke.kdlq.spi.KDLQRedeliveryStorage;
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.ThreadSafe;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -34,10 +35,13 @@ final class InMemoryKDLQRedeliveryStorage implements KDLQRedeliveryStorage {
     @Override
     public List<KDLQProducerRecord.Identifiable<byte[], byte[]>> findAllReadyToRedelivery(
             @Nonnull final Function<String, KDLQConfiguration> configurationFactory,
-            @Nonnegative final long redeliveryTimestamp
+            @Nonnegative final long redeliveryTimestamp,
+            @Nonnull final int limit
     ) {
         return this.storage.stream()
                             .filter(r -> r.nextRedeliveryTimestamp() <= redeliveryTimestamp)
+                            .sorted(Comparator.comparingLong(KDLQProducerRecord::nextRedeliveryTimestamp))
+                            .limit(limit)
                             .collect(Collectors.toList());
     }
 

@@ -62,11 +62,13 @@ public interface KDLQRedeliveryStorage {
      *                             configuration id stored (at the time the message was saved)
      *                             in the store; cannot be {@code null}.
      * @param redeliveryTimestamp  given timestamp in milliseconds since the epoch; cannot be negative.
+     * @param limit                max number of messages for selection; cannot be negative.
      * @return all messages ready for redelivery; cannot be {@code null}.
      */
     @Nonnull
     List<KDLQProducerRecord.Identifiable<byte[], byte[]>> findAllReadyToRedelivery(
             @Nonnull Function<String, KDLQConfiguration> configurationFactory,
-            @Nonnegative long redeliveryTimestamp
+            @Nonnegative long redeliveryTimestamp,
+            @Nonnegative int limit
     );
 }
