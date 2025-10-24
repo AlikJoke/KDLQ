@@ -1,6 +1,8 @@
 package ru.joke.kdlq.internal.routers.producers;
 
 import ru.joke.kdlq.KDLQConfiguration;
+import ru.joke.kdlq.KDLQException;
+import ru.joke.kdlq.internal.util.Args;
 
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.ThreadSafe;
@@ -23,7 +25,7 @@ public final class InternalKDLQMessageProducerFactory implements KDLQMessageProd
      * @param producersRegistry registry of KDLQ producers; cannot be {@code null}.
      */
     public InternalKDLQMessageProducerFactory(@Nonnull KDLQProducersRegistry producersRegistry) {
-        this.producersRegistry = producersRegistry;
+        this.producersRegistry = Args.requireNotNull(producersRegistry, () -> new KDLQException("Registry must be not null"));
     }
 
     @Override

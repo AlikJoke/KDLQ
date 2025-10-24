@@ -83,7 +83,11 @@ final class ConfigurableKDLQMessageConsumer<K, V> implements KDLQMessageConsumer
             closingLock.unlock();
         }
 
-        this.onCloseCallback.accept(this);
+        try {
+            this.onCloseCallback.accept(this);
+        } catch (RuntimeException ex) {
+            logger.warn("Error on call close callback for consumer: " + this.id, ex);
+        }
 
         logger.info("KDLQ consumer was closed: {}", this.id);
     }

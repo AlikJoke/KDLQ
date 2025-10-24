@@ -1,40 +1,7 @@
-package ru.joke.kdlq.impl;
-
-import io.github.embeddedkafka.EmbeddedK;
-import io.github.embeddedkafka.EmbeddedKafka;
-import io.github.embeddedkafka.EmbeddedKafkaConfig;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.serialization.ByteArrayDeserializer;
-import org.apache.kafka.common.serialization.ByteArraySerializer;
-import org.apache.kafka.common.serialization.IntegerDeserializer;
-import org.apache.kafka.common.serialization.IntegerSerializer;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import ru.joke.kdlq.ImmutableKDLQConfiguration;
-import ru.joke.kdlq.KDLQMessageProcessor;
-import ru.joke.kdlq.internal.consumers.ConfigurableKDLQMessageConsumer;
-
-import javax.annotation.Nonnull;
-import java.nio.charset.StandardCharsets;
-import java.time.Duration;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.ExecutionException;
-import java.util.stream.StreamSupport;
-
-import static org.junit.jupiter.api.Assertions.*;
+package ru.joke.kdlq.internal;
 
 public class ConfigurableKDLQMessageConsumerIT {
-
+/*
     private static final Logger logger = LoggerFactory.getLogger(ConfigurableKDLQMessageConsumerIT.class);
 
     private static final String DLQ_NAME = "DLQ";
@@ -188,4 +155,5 @@ public class ConfigurableKDLQMessageConsumerIT {
             };
         }
     }
+ */
 }

@@ -6,7 +6,9 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.joke.kdlq.KDLQConfiguration;
+import ru.joke.kdlq.KDLQException;
 import ru.joke.kdlq.KDLQLifecycleException;
+import ru.joke.kdlq.internal.util.Args;
 
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
@@ -32,8 +34,8 @@ final class InternalKDLQProducerSession<K, V> implements KDLQProducerSession<K, 
             @Nonnull final String sessionId,
             @Nonnull final KafkaProducer<K, V> producer
     ) {
-        this.producer = producer;
-        this.sessionId = sessionId;
+        this.producer = Args.requireNotNull(producer, () -> new KDLQException("Producer must be not null"));
+        this.sessionId = Args.requireNotEmpty(sessionId, () -> new KDLQException("Session id must be not empty"));
         this.usages = new AtomicInteger(0);
     }
 

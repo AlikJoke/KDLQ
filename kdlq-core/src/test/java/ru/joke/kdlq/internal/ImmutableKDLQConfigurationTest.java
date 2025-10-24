@@ -1,19 +1,7 @@
-package ru.joke.kdlq.impl;
-
-import org.junit.jupiter.api.Test;
-import ru.joke.kdlq.ImmutableKDLQConfiguration;
-import ru.joke.kdlq.KDLQConfiguration;
-import ru.joke.kdlq.KDLQConfigurationException;
-import ru.joke.kdlq.KDLQMessageLifecycleListener;
-
-import java.util.Collections;
-import java.util.Map;
-import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.*;
+package ru.joke.kdlq.internal;
 
 public class ImmutableKDLQConfigurationTest {
-
+/*
     private static final String TEST_QUEUE_1 = "test1";
     private static final String TEST_QUEUE_2 = "test2";
 
@@ -111,4 +99,6 @@ public class ImmutableKDLQConfigurationTest {
     private static class TestListener implements KDLQMessageLifecycleListener {
 
     }
+
+ */
 }

@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.joke.kdlq.KDLQConfiguration;
 import ru.joke.kdlq.KDLQException;
+import ru.joke.kdlq.internal.util.Args;
 
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.ThreadSafe;
@@ -24,8 +25,8 @@ final class InternalKDLQMessageProducer<K, V> implements KDLQMessageProducer<K, 
             @Nonnull final KDLQProducersRegistry producersRegistry,
             @Nonnull final KDLQConfiguration configuration
     ) {
-        this.producersRegistry = producersRegistry;
-        this.configuration = configuration;
+        this.producersRegistry = Args.requireNotNull(producersRegistry, () -> new KDLQException("Producers registry must be not null"));
+        this.configuration = Args.requireNotNull(configuration, () -> new KDLQException("Configuration must be not null"));
     }
 
     @Override

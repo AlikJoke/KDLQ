@@ -1,9 +1,11 @@
 package ru.joke.kdlq.internal.routers;
 
 import ru.joke.kdlq.KDLQConfiguration;
+import ru.joke.kdlq.KDLQException;
 import ru.joke.kdlq.internal.routers.headers.KDLQHeadersService;
 import ru.joke.kdlq.internal.routers.producers.KDLQMessageProducer;
 import ru.joke.kdlq.internal.routers.producers.KDLQMessageProducerFactory;
+import ru.joke.kdlq.internal.util.Args;
 import ru.joke.kdlq.spi.KDLQRedeliveryStorage;
 
 import javax.annotation.Nonnull;
@@ -38,9 +40,9 @@ public final class InternalKDLQMessageRouterFactory implements KDLQMessageRouter
             @Nonnull Supplier<KDLQRedeliveryStorage> redeliveryStorageFactory,
             @Nonnull KDLQHeadersService headersService
     ) {
-        this.messageSenderFactory = messageSenderFactory;
-        this.redeliveryStorageFactory = redeliveryStorageFactory;
-        this.headersService = headersService;
+        this.messageSenderFactory = Args.requireNotNull(messageSenderFactory, () -> new KDLQException("Message sender factory must be not null"));
+        this.redeliveryStorageFactory = Args.requireNotNull(redeliveryStorageFactory, () -> new KDLQException("Redelivery storage factory must be not null"));
+        this.headersService = Args.requireNotNull(headersService, () -> new KDLQException("Headers service must be not null"));
     }
 
     @Nonnull

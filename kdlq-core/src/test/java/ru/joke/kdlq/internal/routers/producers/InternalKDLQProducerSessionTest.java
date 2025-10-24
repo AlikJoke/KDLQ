@@ -1,25 +1,48 @@
-package ru.joke.kdlq.impl.internal;
+package ru.joke.kdlq.internal.routers.producers;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.Producer;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.junit.jupiter.api.Test;
+import ru.joke.kdlq.ImmutableKDLQConfiguration;
+import ru.joke.kdlq.KDLQConfiguration;
+import ru.joke.kdlq.KDLQException;
 import ru.joke.kdlq.KDLQLifecycleException;
-import ru.joke.kdlq.impl.internal.routers.KDLQProducerSession;
+
+import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-public class KDLQProducerSessionTest {
+class InternalKDLQProducerSessionTest {
 
     private static final String SESSION_ID = String.valueOf(312323);
 
     @Test
-    public void testSessionLifecycleOnSingleUsage() {
+    void testSessionConstructorValidation() {
+        final var producer = mock(KafkaProducer.class);
+
+        assertThrows(
+                KDLQException.class,
+                () -> new InternalKDLQProducerSession<>("", producer)
+        );
+
+        assertThrows(
+                KDLQException.class,
+                () -> new InternalKDLQProducerSession<>(SESSION_ID, null)
+        );
+    }
+
+    @Test
+    void testSessionLifecycleOnSingleUsage() {
         final var session = createSessionInUseWithChecks();
         makeChecksOnSessionClosing(session, mock(Runnable.class));
     }
 
     @Test
-    public void testSessionLifecycleOnMultipleUsage() {
+    void testSessionLifecycleOnMultipleUsage() {
         final var session = createSessionInUseWithChecks();
 
         assertTrue(session.onUsage(), "Session must be available when isn't closed");
@@ -36,10 +59,30 @@ public class KDLQProducerSessionTest {
         makeChecksOnSessionClosing(session, callbackMock);
     }
 
+    @Test
+    void testSessionConstruction() {
+        final Map<String, Object> producerProperties = Map.of(
+                ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class,
+                ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class
+        );
+        final var config =
+                KDLQConfiguration.builder()
+                                    .withId(SESSION_ID)
+                                 .build(
+                                         Set.of("localhost:8080"),
+                                         producerProperties,
+                                         KDLQConfiguration.DLQ.builder().build("test-queue")
+                                 );
+        final var session = new InternalKDLQProducerSession<>(config);
+
+        assertEquals(config.producerId(), session.sessionId(), "Session id must be equal");
+        assertNotNull(session.producer(), "Producer must be not null");
+    }
+
     private KDLQProducerSession<String, byte[]> createSessionInUseWithChecks() {
         @SuppressWarnings("unchecked")
         final KafkaProducer<String, byte[]> producer = mock(KafkaProducer.class);
-        final KDLQProducerSession<String, byte[]> session = new KDLQProducerSession<>(SESSION_ID, producer);
+        final KDLQProducerSession<String, byte[]> session = new InternalKDLQProducerSession<>(SESSION_ID, producer);
 
         assertEquals(SESSION_ID, session.sessionId(), "Session id must be equal");
         assertEquals(producer, session.producer(), "Producer must be equal");

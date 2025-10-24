@@ -1,18 +1,16 @@
-package ru.joke.kdlq.impl.internal;
+package ru.joke.kdlq.internal.routers.producers;
 
 import org.junit.jupiter.api.Test;
-import ru.joke.kdlq.impl.internal.routers.KDLQProducerSession;
-import ru.joke.kdlq.internal.routers.producers.KDLQProducersRegistry;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 
-public class KDLQProducersRegistryTest {
+class InternalKDLQProducersRegistryTest {
 
-    private final KDLQProducersRegistry registry = new KDLQProducersRegistry();
+    private final KDLQProducersRegistry registry = new InternalKDLQProducersRegistry();
 
     @Test
-    public void testWhenSessionNotRegistered() {
+    void testWhenSessionNotRegistered() {
         final var producerId = "1";
         final var session = this.registry.get(producerId);
 
@@ -21,7 +19,7 @@ public class KDLQProducersRegistryTest {
     }
 
     @Test
-    public void testWhenSessionRegistered() {
+    void testWhenSessionRegistered() {
         final var producerId = "1";
         @SuppressWarnings("unchecked")
         final KDLQProducerSession<String, byte[]> mockSession1 = mock(KDLQProducerSession.class);

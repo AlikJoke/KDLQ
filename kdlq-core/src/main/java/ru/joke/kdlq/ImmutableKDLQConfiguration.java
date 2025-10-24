@@ -43,7 +43,7 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
 
         Args.requireNotEmpty(bootstrapServers, () -> new KDLQConfigurationException("Bootstrap servers must be not empty"));
         Args.requireNotNull(producerProperties, () -> new KDLQConfigurationException("Kafka producer properties must be not null"));
-        Args.requireNotEmpty(lifecycleListeners, () -> new KDLQConfigurationException("Lifecycle listeners must be not null"));
+        Args.requireNotNull(lifecycleListeners, () -> new KDLQConfigurationException("Lifecycle listeners must be not null"));
         Args.requireNotEmpty(id, () -> new KDLQConfigurationException("Configuration id must be not empty"));
         Args.requireNotEmpty(producerProperties, () -> new KDLQConfigurationException("Producer properties cannot be empty"));
 
