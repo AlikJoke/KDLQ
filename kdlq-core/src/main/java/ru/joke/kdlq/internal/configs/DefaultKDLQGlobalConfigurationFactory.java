@@ -110,5 +110,4 @@ public final class DefaultKDLQGlobalConfigurationFactory implements KDLQGlobalCo
                     .withRedeliveryDispatcherTaskDelay(redeliveryDispatcherTaskDelay)
                 .build(lockService, redeliveryStorage);
     }
-
 }

@@ -35,7 +35,7 @@ public final class InternalKDLQConfigurationRegistry implements KDLQConfiguratio
     @Override
     @Nonnull
     public Optional<KDLQConfiguration> get(@Nonnull String configurationId) {
-        return Optional.of(this.registry.get(configurationId));
+        return Optional.ofNullable(this.registry.get(configurationId));
     }
 
     @Override

@@ -12,12 +12,12 @@ import java.util.Optional;
 
 final class SafeKDLQMessageLifecycleListenerDecorator implements KDLQMessageLifecycleListener {
 
-    private static final Logger logger = LoggerFactory.getLogger(SafeKDLQMessageLifecycleListenerDecorator.class);
-
+    private final Logger logger;
     private final KDLQMessageLifecycleListener listener;
 
     SafeKDLQMessageLifecycleListenerDecorator(@Nonnull final KDLQMessageLifecycleListener listener) {
         this.listener = Args.requireNotNull(listener, () -> new KDLQConfigurationException("Provided null listener"));
+        this.logger = LoggerFactory.getLogger(listener.getClass());
     }
 
     @Override

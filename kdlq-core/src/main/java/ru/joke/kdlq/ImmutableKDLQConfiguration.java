@@ -184,7 +184,7 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
             private int maxRedeliveryAttemptsBeforeKill = 5;
             private double redeliveryDelayMultiplier = 1.5;
             private int redeliveryDelay;
-            private int maxRedeliveryDelay;
+            private long maxRedeliveryDelay;
 
             /**
              * Sets the queue (topic) to redelivery messages
@@ -249,7 +249,7 @@ public final class ImmutableKDLQConfiguration implements KDLQConfiguration {
              * @see KDLQConfiguration.Redelivery#maxRedeliveryDelay()
              */
             @Nonnull
-            public Builder withMaxRedeliveryDelay(@Nonnegative int maxRedeliveryDelay) {
+            public Builder withMaxRedeliveryDelay(@Nonnegative long maxRedeliveryDelay) {
                 this.maxRedeliveryDelay = maxRedeliveryDelay;
                 return this;
             }

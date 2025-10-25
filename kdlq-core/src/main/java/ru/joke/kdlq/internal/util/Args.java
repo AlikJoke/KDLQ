@@ -25,7 +25,7 @@ public abstract class Args {
     @Nonnull
     public static <T> T requireNotNull(
             final T value,
-            @Nonnull final Supplier<RuntimeException> exceptionSupplier
+            @Nonnull final Supplier<? extends RuntimeException> exceptionSupplier
     ) {
         if (value == null) {
             throw exceptionSupplier.get();
@@ -45,7 +45,7 @@ public abstract class Args {
     @Nonnull
     public static String requireNotEmpty(
             final String value,
-            @Nonnull final Supplier<RuntimeException> exceptionSupplier
+            @Nonnull final Supplier<? extends RuntimeException> exceptionSupplier
     ) {
         if (value == null || value.isEmpty()) {
             throw exceptionSupplier.get();
@@ -64,7 +64,7 @@ public abstract class Args {
      */
     public static int requirePositive(
             final int value,
-            @Nonnull final Supplier<RuntimeException> exceptionSupplier
+            @Nonnull final Supplier<? extends RuntimeException> exceptionSupplier
     ) {
         if (value <= 0) {
             throw exceptionSupplier.get();
@@ -84,7 +84,7 @@ public abstract class Args {
     @Nonnegative
     public static int requireNonNegative(
             final int value,
-            @Nonnull final Supplier<RuntimeException> exceptionSupplier
+            @Nonnull final Supplier<? extends RuntimeException> exceptionSupplier
     ) {
         if (value < 0) {
             throw exceptionSupplier.get();
@@ -104,7 +104,7 @@ public abstract class Args {
     @Nonnegative
     public static long requireNonNegative(
             final long value,
-            @Nonnull final Supplier<RuntimeException> exceptionSupplier
+            @Nonnull final Supplier<? extends RuntimeException> exceptionSupplier
     ) {
         if (value < 0) {
             throw exceptionSupplier.get();
@@ -124,7 +124,7 @@ public abstract class Args {
     @Nonnull
     public static <T> Collection<T> requireNotEmpty(
             final Collection<T> value,
-            @Nonnull final Supplier<RuntimeException> exceptionSupplier
+            @Nonnull final Supplier<? extends RuntimeException> exceptionSupplier
     ) {
         if (value == null || value.isEmpty()) {
             throw exceptionSupplier.get();
@@ -144,7 +144,7 @@ public abstract class Args {
     @Nonnull
     public static <K, V> Map<K, V> requireNotEmpty(
             final Map<K, V> value,
-            final Supplier<RuntimeException> exceptionSupplier
+            final Supplier<? extends RuntimeException> exceptionSupplier
     ) {
         if (value == null || value.isEmpty()) {
             throw exceptionSupplier.get();

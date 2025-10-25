@@ -1,6 +1,7 @@
-package ru.joke.kdlq.internal;
+package ru.joke.kdlq;
 
-public class ConfigurableKDLQMessageConsumerIT {
+// TODO
+class KDLQ_IT {
 /*
     private static final Logger logger = LoggerFactory.getLogger(ConfigurableKDLQMessageConsumerIT.class);
 
@@ -28,9 +29,9 @@ public class ConfigurableKDLQMessageConsumerIT {
         final var servers = createBootstrapServersConfig();
         final var config =
                 ImmutableKDLQConfiguration
-                    .builder()
+                        .builder()
                         .withProducerProperties(createProducerProperties())
-                    .build(servers, DLQ_NAME);
+                        .build(servers, DLQ_NAME);
         final var messageProcessor = new TestProcessor();
 
         // Fill working queue
@@ -47,7 +48,7 @@ public class ConfigurableKDLQMessageConsumerIT {
 
         // main action (consuming)
         try (final ConfigurableKDLQMessageConsumer<Integer, byte[]> consumer = new ConfigurableKDLQMessageConsumer<>(CONSUMER_MARKER, config, messageProcessor);
-             final KafkaConsumer<Integer, byte[]> kafkaConsumer = new KafkaConsumer<>(createConsumerProperties())) {
+                final KafkaConsumer<Integer, byte[]> kafkaConsumer = new KafkaConsumer<>(createConsumerProperties())) {
 
             kafkaConsumer.subscribe(Set.of(TEST_QUEUE_NAME));
 
@@ -79,8 +80,8 @@ public class ConfigurableKDLQMessageConsumerIT {
             assertEquals(12, StreamSupport.stream(redeliveredRecords.spliterator(), false).count(), "Count of messages must be equal");
             final var redeliveredMessages =
                     StreamSupport.stream(redeliveredRecords.spliterator(), false)
-                                    .filter(record -> record.headers().lastHeader("KDLQ_Redelivered") != null)
-                                    .toList();
+                            .filter(record -> record.headers().lastHeader("KDLQ_Redelivered") != null)
+                            .toList();
             assertEquals(3, redeliveredMessages.size(), "Count of redelivered messages must be equal");
             redeliveredMessages.forEach(record -> makeMessageChecks(record, "KDLQ_Redelivered", 1));
         }

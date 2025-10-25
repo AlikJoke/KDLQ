@@ -1,7 +1,7 @@
 package ru.joke.kdlq;
 
 import ru.joke.kdlq.internal.util.Args;
-import ru.joke.kdlq.internal.util.DaemonThreadFactory;
+import ru.joke.kdlq.internal.util.DaemonVirtualThreadFactory;
 import ru.joke.kdlq.spi.KDLQGlobalDistributedLockService;
 import ru.joke.kdlq.spi.KDLQRedeliveryStorage;
 
@@ -80,8 +80,6 @@ public record ImmutableKDLQGlobalConfiguration(
         private ScheduledExecutorService redeliveryDispatcherPool;
         private ExecutorService redeliveryPool;
         private long redeliveryDispatcherTaskDelay = 1_000;
-        private KDLQGlobalDistributedLockService distributedLockService;
-        private KDLQRedeliveryStorage redeliveryStorage;
 
         /**
          * Sets the thread pool for running dispatcher of the message redelivery tasks.
@@ -143,7 +141,7 @@ public record ImmutableKDLQGlobalConfiguration(
         ) {
             final var redeliveryDispatcherPool =
                     this.redeliveryDispatcherPool == null
-                            ? Executors.newSingleThreadScheduledExecutor(new DaemonThreadFactory("redelivery"))
+                            ? Executors.newSingleThreadScheduledExecutor(new DaemonVirtualThreadFactory("redelivery"))
                             : this.redeliveryDispatcherPool;
             final var redeliveryPool =
                     this.redeliveryPool == null
@@ -153,8 +151,8 @@ public record ImmutableKDLQGlobalConfiguration(
                     redeliveryDispatcherPool,
                     redeliveryPool,
                     this.redeliveryDispatcherTaskDelay,
-                    this.distributedLockService,
-                    this.redeliveryStorage
+                    distributedLockService,
+                    redeliveryStorage
             );
         }
     }
