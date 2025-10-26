@@ -164,9 +164,6 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>3.5.4</version>
                     <configuration>
-                        <excludes>
-                            <exclude>**/*IT.java</exclude>
-                        </excludes>
                         <properties>
                             <configurationParameters>
                                 junit.jupiter.execution.parallel.enabled = true
@@ -181,11 +178,6 @@
                             <goals>
                                 <goal>test</goal>
                             </goals>
-                            <configuration>
-                                <excludes>
-                                    <exclude>**/*IT.java</exclude>
-                                </excludes>
-                            </configuration>
                         </execution>
                         <execution>
                             <id>integration-tests</id>
@@ -193,11 +185,6 @@
                             <goals>
                                 <goal>test</goal>
                             </goals>
-                            <configuration>
-                                <includes>
-                                    <include>**/*IT.java</include>
-                                </includes>
-                            </configuration>
                         </execution>
                     </executions>
                 </plugin>

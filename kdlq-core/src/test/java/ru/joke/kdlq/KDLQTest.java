@@ -5,6 +5,7 @@ import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 import org.mockito.ArgumentCaptor;
 import ru.joke.kdlq.internal.redelivery.RedeliveryTask;
 import ru.joke.kdlq.spi.KDLQGlobalDistributedLockService;
@@ -16,8 +17,10 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 import static org.mockito.Mockito.*;
 
+@Execution(SAME_THREAD)
 class KDLQTest {
 
     private static final String CONFIG_ID = "1";
