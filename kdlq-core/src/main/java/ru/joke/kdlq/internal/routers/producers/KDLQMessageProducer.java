@@ -11,7 +11,7 @@ import javax.annotation.Nonnull;
  * @param <V> type of message body
  * @author Alik
  */
-public sealed interface KDLQMessageProducer<K, V> extends AutoCloseable permits InternalKDLQMessageProducer {
+public interface KDLQMessageProducer<K, V> extends AutoCloseable {
 
     /**
      * Sends message to Kafka.

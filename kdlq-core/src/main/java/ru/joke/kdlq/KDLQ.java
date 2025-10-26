@@ -104,12 +104,7 @@ public final class KDLQ {
                     instance.headersService
             );
 
-            final var redeliveryDispatcherPool = globalConfiguration.redeliveryDispatcherPool();
-            redeliveryDispatcherPool.schedule(
-                    instance.redeliveryTask,
-                    globalConfiguration.redeliveryDispatcherTaskDelay(),
-                    TimeUnit.MILLISECONDS
-            );
+            instance.redeliveryTask.run();
 
             instance.redeliveryStorageHolder.storage = globalConfiguration.redeliveryStorage();
         }
@@ -190,7 +185,7 @@ public final class KDLQ {
             logger.debug("Consumer {} registered with config {}", id, configFromRegistry);
 
             return Map.entry(configFromRegistry, createdConsumer);
-        });
+        }).getValue();
 
         return result;
     }

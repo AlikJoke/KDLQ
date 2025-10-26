@@ -71,7 +71,7 @@ public final class RedeliveryTask implements Runnable, Closeable {
     @Override
     public void run() {
         final var lockService = this.globalConfiguration.distributedLockService();
-        if (!lockService.tryLock()) {
+        if (this.dispatcherFuture == null || !lockService.tryLock()) {
             scheduleNextRedelivery();
             return;
         }
