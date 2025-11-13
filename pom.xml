@@ -25,9 +25,9 @@
     </properties>
 
     <scm>
-        <url>https://github.com/AlikJoke/KafkaDLQ</url>
-        <connection>scm:git:https://github.com/AlikJoke/KafkaDLQ.git</connection>
-        <developerConnection>scm:git:https://github.com/AlikJoke/KafkaDLQ.git</developerConnection>
+        <url>https://github.com/AlikJoke/KDLQ</url>
+        <connection>scm:git:https://github.com/AlikJoke/KDLQ.git</connection>
+        <developerConnection>scm:git:https://github.com/AlikJoke/KDLQ.git</developerConnection>
     </scm>
 
     <inceptionYear>2024</inceptionYear>
